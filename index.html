@@ -434,52 +434,167 @@ const SPR_BOSS = [
 ];
 const PAL_BOSS = { R:"#a01818", r:"#ff4848", k:"#1a0a0a" };
 
-// 紫色发光森林树（俯视，斑块）
-function drawTree(x, y) {
-  rect(x+2, y+2, 8, 8, "#22102a");
-  rect(x+3, y+3, 6, 6, "#3a1a4a");
-  rect(x+4, y+4, 4, 4, "#5a2a7a");
-  px(x+5, y+5, "#c060ff"); px(x+6, y+6, "#c060ff");
-  px(x+4, y+6, "#80a0ff"); px(x+7, y+5, "#80a0ff");
+// 软投影（椭圆 alpha）
+function drawShadow(cx, cy, w) {
+  const h = Math.max(1, (w * 0.35) | 0);
+  for (let i = 0; i < h; i++) {
+    const t = i / h;
+    const ww = (w / 2) * Math.sqrt(1 - (1 - t) * (1 - t));
+    rect(cx - ww, cy + i, ww * 2, 1, `rgba(0,0,0,${0.32 - t * 0.22})`);
+  }
 }
 
-// 岩石
+// 草丛（5 像素小簇）
+function drawGrassTuft(x, y, c1, c2) {
+  c1 = c1 || "#3a8a4a"; c2 = c2 || "#6acc6a";
+  px(x,   y+2, c1); px(x+1, y+1, c1); px(x+2, y,   c2);
+  px(x+3, y+1, c1); px(x+4, y+2, c1);
+  px(x+1, y+2, c2); px(x+3, y+2, c2);
+}
+
+// 小花（3x3）
+function drawFlower(x, y, petal) {
+  petal = petal || "#ffd070";
+  px(x+1, y,   petal); px(x,   y+1, petal); px(x+2, y+1, petal); px(x+1, y+2, petal);
+  px(x+1, y+1, "#ffffff");
+}
+
+// 发光蘑菇（5x5）
+function drawMushroom(x, y, cap) {
+  cap = cap || "#c060ff";
+  rect(x+1, y+3, 3, 2, "#e8d8c0");
+  rect(x,   y+1, 5, 2, cap);
+  px(x+1, y, cap); px(x+2, y, cap); px(x+3, y, cap);
+  px(x+1, y+1, "#ffffff"); px(x+3, y+2, "rgba(255,255,255,0.55)");
+  px(x+2, y+4, "#b0a090");
+}
+
+// 雪花颗粒（2 像素）
+function drawSnowflake(x, y) {
+  px(x, y, "#ffffff"); px(x+1, y, "rgba(255,255,255,0.55)");
+}
+
+// 蕨叶（中景）
+function drawFern(x, y) {
+  rect(x+2, y, 1, 6, "#1a4a2a");
+  for (let i = 0; i < 3; i++) {
+    px(x,   y+i*2+1, "#3a8a4a"); px(x+1, y+i*2+1, "#3a8a4a");
+    px(x+3, y+i*2+1, "#3a8a4a"); px(x+4, y+i*2+1, "#3a8a4a");
+  }
+  px(x+2, y, "#6acc6a");
+}
+
+// 云朵（飘动剪影）
+function drawCloud(x, y, w, c) {
+  c = c || "rgba(255,220,180,0.55)";
+  rect(x+2, y+1, w-4, 3, c);
+  rect(x+1, y+2, w-2, 1, c);
+  rect(x,   y+3, w,   1, c);
+  rect(x+3, y,   w-7, 1, c);
+}
+
+// 圆角面板（HUD / 对话）
+function panel(x, y, w, h, fill, border) {
+  rect(x+1, y, w-2, h, fill);
+  rect(x, y+1, w, h-2, fill);
+  if (border) {
+    rect(x+1, y, w-2, 1, border);
+    rect(x+1, y+h-1, w-2, 1, border);
+    rect(x, y+1, 1, h-2, border);
+    rect(x+w-1, y+1, 1, h-2, border);
+  }
+}
+
+// 紫色发光森林树（前景，分层：树干 + 树冠 + 高光 + 投影）
+function drawTree(x, y) {
+  // 投影
+  rect(x+1, y+11, 11, 2, "rgba(0,0,0,0.35)");
+  // 树干
+  rect(x+5, y+7, 3, 5, "#2a1530");
+  rect(x+5, y+7, 1, 5, "#1a0820");
+  // 树冠暗底
+  rect(x+1, y+1, 11, 7, "#2a1240");
+  rect(x+2, y,   9,  1, "#3a1a52");
+  // 边缘暗线
+  rect(x+1, y+1, 1, 5, "#1a0828");
+  rect(x+11, y+1, 1, 5, "#1a0828");
+  // 树冠主色
+  rect(x+2, y+2, 9, 4, "#4a2070");
+  rect(x+3, y+3, 7, 2, "#6a30a0");
+  // 发光斑点
+  px(x+4, y+2, "#c060ff"); px(x+8, y+4, "#c060ff");
+  px(x+6, y+3, "#ffaaff"); px(x+9, y+2, "#aa80ff");
+  px(x+3, y+5, "#80a0ff");
+}
+
+// 岩石（多层 + 高光 + 投影）
 function drawRock(x, y) {
-  rect(x, y+2, 10, 6, "#3a2a1a");
-  rect(x+1, y+1, 8, 6, "#5a4838");
-  rect(x+2, y, 5, 4, "#7a6850");
-  px(x+3, y+1, "#a89878");
+  rect(x+1, y+5, 11, 3, "rgba(0,0,0,0.35)");
+  rect(x,   y+3, 12, 4, "#2a1f14");
+  rect(x+1, y+2, 10, 4, "#5a4838");
+  rect(x+2, y+1, 8,  3, "#7a6850");
+  rect(x+3, y,   5,  2, "#9a8868");
+  px(x+4, y+1, "#c8b090"); px(x+5, y+1, "#c8b090");
+  px(x+8, y+3, "#3a2a1a"); px(x+2, y+5, "#3a2a1a");
 }
 
 // 逃生舱（关卡 1 装饰）
 function drawPod(x, y) {
-  rect(x, y+6, 28, 12, "#2a2a30");
-  rect(x+2, y+4, 24, 12, "#4a4a55");
-  rect(x+4, y+6, 20, 8, "#6a6a78");
-  rect(x+8, y+8, 12, 4, "#90c8e0");   // 舷窗
-  rect(x+9, y+9, 10, 2, "#c0e8ff");
-  // 裂缝
-  for (let i = 0; i < 5; i++) px(x+12+i, y+10+(i&1), "#3068a0");
-  // 阴影
-  rect(x-2, y+18, 32, 2, "rgba(0,0,0,0.4)");
+  // 投影
+  rect(x-2, y+18, 32, 3, "rgba(0,0,0,0.5)");
+  // 主体
+  rect(x,   y+6, 28, 12, "#1a1a22");
+  rect(x+1, y+5, 26, 12, "#3a3a44");
+  rect(x+2, y+4, 24, 12, "#52525e");
+  rect(x+3, y+5, 22, 10, "#6a6a78");
+  rect(x+3, y+5, 22, 1, "#8a8a98");
+  // 舷窗
+  rect(x+8,  y+8,  12, 4, "#1a3a55");
+  rect(x+9,  y+8,  10, 1, "#90c8e0");
+  rect(x+9,  y+9,  10, 2, "#c0e8ff");
+  rect(x+10, y+9,  6,  1, "#ffffff");
+  // 裂缝 / 烧灼
+  for (let i = 0; i < 6; i++) px(x+12+i, y+11+(i&1), "#1a3a5a");
+  // 鳍灯
+  px(x+5,  y+13, "#cf6a1a"); px(x+22, y+13, "#cf6a1a");
+  // 起落架
+  rect(x+3,  y+17, 2, 4, "#2a2a30");
+  rect(x+23, y+17, 2, 4, "#2a2a30");
 }
 
 // 半球形建筑（远景）
 function drawDome(x, y, w, h) {
-  // 主体
   for (let i = 0; i < h; i++) {
     const t = i / h;
     const ww = w * Math.sqrt(1 - t*t);
     const cx = x + w/2;
-    rect(cx - ww, y + h - i, ww*2, 1, i < 3 ? "#5a5048" : (i < 8 ? "#403830" : "#2a2520"));
+    const col = i < 2 ? "#6a5a48"
+              : i < 5 ? "#4a4030"
+              : i < 9 ? "#2a2520"
+              : "#1a1812";
+    rect(cx - ww, y + h - i, ww*2, 1, col);
   }
+  // 玻璃高光
+  rect(x + w*0.20, y + h - h*0.55, 2, 3, "rgba(255,220,160,0.45)");
   // Ω 标志
-  g.fillStyle = "#a87030";
+  g.fillStyle = "#cf8a40";
   g.fillRect(x + w/2 - 4, y + h - 6, 1, 4);
   g.fillRect(x + w/2 + 3, y + h - 6, 1, 4);
   g.fillRect(x + w/2 - 3, y + h - 6, 6, 1);
   g.fillRect(x + w/2 - 5, y + h - 2, 3, 1);
   g.fillRect(x + w/2 + 2, y + h - 2, 3, 1);
+  // 底部小窗
+  px(x + w*0.35, y + h - 2, "#ffd28a");
+  px(x + w*0.65, y + h - 2, "#ffd28a");
+}
+
+// 暗角后处理
+function drawVignette() {
+  const grad = g.createRadialGradient(W/2, H/2, 60, W/2, H/2, 180);
+  grad.addColorStop(0, "rgba(0,0,0,0)");
+  grad.addColorStop(1, "rgba(0,0,0,0.55)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
 }
 
 /* -------------------- 游戏对象 -------------------- */
@@ -670,19 +785,30 @@ function drawDialogue() {
   const line = d.lines[d.i];
   if (!line) return;
   const [who, text] = line;
-  // 半透明黑底
-  rect(0, H - 60, W, 60, "rgba(0,0,0,0.78)");
-  rect(0, H - 60, W, 1, "#cf6a1a");
-  rect(0, H - 1, W, 1, "#cf6a1a");
-  // 名字
-  drawText(who + " ▸", 10, H - 50, "#ffd28a");
+  // 渐变面板（自上而下加深）
+  for (let i = 0; i < 64; i++) {
+    rect(0, H - 64 + i, W, 1, `rgba(8,5,12,${0.55 + i*0.006})`);
+  }
+  // 上下橙边
+  rect(0, H - 64, W, 1, "rgba(207,106,26,0.9)");
+  rect(0, H - 63, W, 1, "rgba(207,106,26,0.35)");
+  rect(0, H - 1,  W, 1, "rgba(207,106,26,0.9)");
+  // 名字徽章
+  g.font = "10px 'Microsoft YaHei','PingFang SC',sans-serif";
+  const nw = ((g.measureText(who).width)|0) + 12;
+  rect(8, H - 58, nw, 12, "rgba(207,106,26,0.85)");
+  rect(8, H - 58, nw, 1, "#ffd28a");
+  rect(8, H - 47, nw, 1, "rgba(80,30,8,0.7)");
+  drawText(who, 14, H - 56, "#1a0a04");
   // 文本（带打字机效果）
   const visible = Math.min(line[1].length, Math.floor(d.charT));
-  drawText(text.slice(0, visible), 10, H - 36, "#ece4d0", 240);
+  drawText(text.slice(0, visible), 12, H - 40, "#f4ecd8", 296);
   // 提示
   if (d.charT >= text.length) {
-    if ((Game.time * 2) % 2 < 1)
-      drawText("[空格]", W - 38, H - 12, "#aaa288");
+    if ((Game.time * 2) % 2 < 1) {
+      rect(W - 44, H - 13, 38, 10, "rgba(207,106,26,0.65)");
+      drawText("空格 ▸", W - 41, H - 13, "#fff5d8");
+    }
   }
 }
 
@@ -714,119 +840,233 @@ function drawCenterText(str, y, color, size) {
 
 /* -------------------- 背景渲染 -------------------- */
 function drawBackground() {
+  const t = Game.time;
+
   if (Game.bg === "sand") {
-    // 橙红沙漠 + 远处土星 + 半球建筑
-    // 天空（琥珀色）
-    for (let y = 0; y < 80; y++) {
-      const t = y / 80;
-      const r = 200 + t * 30, gn = 130 - t * 30, b = 60 + t * 20;
+    // 黎明的琥珀天（更柔和的渐变）
+    for (let y = 0; y < 78; y++) {
+      const k = y / 78;
+      const r = 245 - k * 70, gn = 175 - k * 90, b = 115 - k * 75;
       rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
     }
-    // 土星
+    // 缓慢飘动的云
+    drawCloud((((t*4)|0) % (W+40)) - 40,        24, 24, "rgba(255,236,200,0.55)");
+    drawCloud((((t*3+120)|0) % (W+40)) - 40,    40, 18, "rgba(255,220,180,0.45)");
+    drawCloud((((t*2+200)|0) % (W+40)) - 40,    12, 30, "rgba(255,250,220,0.65)");
+    // 土星 + 光晕
+    g.fillStyle = "rgba(230,194,128,0.22)";
+    g.beginPath(); g.arc(250, 30, 22, 0, Math.PI*2); g.fill();
     rect(220, 12, 60, 30, "#e6c280");
     rect(225, 18, 50, 18, "#d8a860");
     rect(230, 22, 40, 12, "#b88848");
-    // 土星环（细椭圆）
-    g.strokeStyle = "rgba(220,180,120,0.7)";
+    rect(232, 18, 6, 1, "rgba(255,255,255,0.45)");
+    g.strokeStyle = "rgba(220,180,120,0.85)";
     g.lineWidth = 1;
     g.beginPath(); g.ellipse(250, 30, 38, 6, 0, 0, Math.PI*2); g.stroke();
-    // 远处建筑剪影
-    drawDome(60, 50, 60, 20);
-    // 沙地
+    g.strokeStyle = "rgba(255,232,200,0.4)";
+    g.beginPath(); g.ellipse(250, 30, 32, 4, 0, 0, Math.PI*2); g.stroke();
+    // 远山剪影
+    g.fillStyle = "#5a2818";
+    g.beginPath(); g.moveTo(0, 80);
+    for (let x = 0; x <= W; x += 8) g.lineTo(x, 78 + Math.sin(x*0.04)*4 - ((x*7)%9)*0.4);
+    g.lineTo(W, 95); g.lineTo(0, 95); g.closePath(); g.fill();
+    // 中景半球建筑
+    drawDome(60, 50, 60, 22);
+    drawDome(160, 60, 36, 14);
+    // 沙地渐变
     for (let y = 80; y < H; y++) {
-      const t = (y - 80) / (H - 80);
-      const r = 180 - t * 60, gn = 90 - t * 30, b = 40;
+      const k = (y - 80) / (H - 80);
+      const r = 215 - k * 85, gn = 135 - k * 65, b = 75 - k * 35;
       rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
     }
     // 沙丘剪影
     g.fillStyle = "#7a3a18";
-    g.beginPath();
-    g.moveTo(0, 95);
+    g.beginPath(); g.moveTo(0, 95);
     for (let x = 0; x <= W; x += 8) {
       const yy = 95 + Math.sin(x*0.05) * 4 + Math.sin(x*0.13) * 2;
       g.lineTo(x, yy);
     }
     g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+    // 沙地阴影波纹
+    for (let i = 0; i < 6; i++) {
+      const sy = 116 + i * 12;
+      rect(0, sy, W, 1, "rgba(90,30,12,0.18)");
+    }
     // 关卡 1 装饰：逃生舱
     if (Game.level === 0) drawPod(8, 130);
-    // 沙粒散点
-    for (let i = 0; i < 30; i++) {
-      const sx = (i * 37 + (Game.time * 6 | 0)) % W;
-      const sy = 100 + (i * 13) % (H - 100);
-      px(sx, sy, "#3a1a08");
+    // 沙地草丛 / 花
+    const sandTufts = [[40,150],[70,162],[120,170],[200,160],[230,178],[270,168],[296,182],[58,180],[150,185]];
+    for (const [tx, ty] of sandTufts) drawGrassTuft(tx, ty, "#7a4a18", "#c08a40");
+    drawFlower(110, 165, "#ff9050");
+    drawFlower(245, 172, "#ffd070");
+    drawFlower(180, 178, "#ff7050");
+    // 飞扬的沙粒
+    for (let i = 0; i < 28; i++) {
+      const sx = (i * 37 + (t * 18 | 0)) % W;
+      const sy = 100 + (i * 13 + (t * 6 | 0)) % (H - 100);
+      px(sx, sy, "rgba(80,40,16,0.55)");
     }
   }
   else if (Game.bg === "forest") {
-    // 紫色森林
+    // 紫色森林天空
     for (let y = 0; y < H; y++) {
-      const t = y / H;
-      const r = 30 + t * 20, gn = 10 + t * 15, b = 40 + t * 30;
+      const k = y / H;
+      const r = 28 + k * 25, gn = 8 + k * 18, b = 50 + k * 35;
       rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
     }
-    // 菌毯
-    rect(0, H - 40, W, 40, "#163a4a");
-    rect(0, H - 40, W, 1, "#2a6a78");
+    // 远景大树剪影（圆顶 + 树干）
+    g.fillStyle = "rgba(28,12,42,0.85)";
+    for (let i = 0; i < 5; i++) {
+      const cx = 30 + i * 70 + Math.sin(i*1.3)*10;
+      g.beginPath(); g.arc(cx, 70, 18 + (i&1)*4, 0, Math.PI*2); g.fill();
+      rect(cx-1, 70, 2, 22, "rgba(20,8,30,0.85)");
+    }
+    // 远树发光斑点
+    for (let i = 0; i < 16; i++) {
+      const sx = (i * 41) % W;
+      const sy = 56 + (i * 13) % 22;
+      const a = 0.4 + 0.6 * Math.abs(Math.sin(t*1.5 + i));
+      px(sx, sy, `rgba(192,96,255,${a*0.6})`);
+    }
+    // 菌毯地面渐变
+    for (let y = H - 50; y < H; y++) {
+      const k = (y - (H - 50)) / 50;
+      const r = 20 + k * 12, gn = 52 + k * 32, b = 72 + k * 32;
+      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
+    }
+    // 菌毯纹理（确定性散点）
+    for (let i = 0; i < 90; i++) {
+      const sx = (i * 41) % W;
+      const sy = H - 50 + ((i * 17) % 50);
+      const c = (i % 4 === 0) ? "#3a8a78" : (i % 4 === 1 ? "#2a6a5a" : "#1a4a3a");
+      px(sx, sy, c);
+    }
+    // 蕨类植物中景
+    const ferns = [[30, H-58],[140, H-56],[210, H-60],[260, H-58],[300, H-56],[78, H-57]];
+    for (const [fx, fy] of ferns) drawFern(fx, fy);
     // 树
     const trees = [
-      [20, 40], [60, 30], [110, 50], [160, 30], [200, 60],
-      [40, 130], [90, 140], [150, 145], [220, 150], [280, 140], [300, 50],
+      [20, 38], [60, 28], [110, 48], [160, 28], [200, 58], [250, 32], [296, 48],
+      [40, 130], [90, 142], [150, 145], [220, 148], [280, 138], [10, 152], [180, 152],
     ];
     for (const [tx, ty] of trees) drawTree(tx, ty);
-    // 发光孢子
-    for (let i = 0; i < 25; i++) {
-      const sx = (i * 53 + Game.time * 8) % W;
-      const sy = 30 + ((i * 19 + Game.time * 4) % (H - 60));
-      px(sx|0, sy|0, "#aaffcc");
-      px((sx|0)+1, (sy|0), "#88dd99");
+    // 地面发光蘑菇
+    drawMushroom(56, 168, "#c060ff");
+    drawMushroom(112, 175, "#ff60a0");
+    drawMushroom(178, 170, "#60d0ff");
+    drawMushroom(232, 178, "#c060ff");
+    drawMushroom(282, 168, "#ff60a0");
+    drawMushroom(20, 180, "#60d0ff");
+    // 萤火虫（飘动 + 闪烁）
+    for (let i = 0; i < 24; i++) {
+      const sx = (i * 53 + t * 8) % W;
+      const sy = 30 + ((i * 19 + t * 3) % (H - 60)) + Math.sin(t*2 + i)*4;
+      const a = 0.4 + 0.6 * Math.abs(Math.sin(t*3 + i));
+      px(sx|0, sy|0, `rgba(170,255,200,${a})`);
+      px((sx|0)+1, sy|0, `rgba(120,220,160,${a*0.6})`);
     }
   }
   else if (Game.bg === "rocks") {
-    // 岩石山地
+    // 黄昏天
     for (let y = 0; y < H; y++) {
-      const t = y / H;
-      const r = 60 + t * 40, gn = 35 + t * 25, b = 25 + t * 15;
+      const k = y / H;
+      const r = 75 + k * 50, gn = 55 + k * 30, b = 65 + k * 20;
       rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
     }
-    // 远山
+    // 远雪山
+    g.fillStyle = "#1f1822";
+    g.beginPath(); g.moveTo(0, 60);
+    for (let x = 0; x <= W; x += 16) g.lineTo(x, 60 - (Math.sin(x*0.04)*10 + ((x*7)%13)));
+    g.lineTo(W, 90); g.lineTo(0, 90); g.closePath(); g.fill();
+    // 雪盖
+    g.fillStyle = "rgba(220,220,235,0.85)";
+    g.beginPath(); g.moveTo(0, 60);
+    for (let x = 0; x <= W; x += 16) {
+      const yy = 60 - (Math.sin(x*0.04)*10 + ((x*7)%13));
+      g.lineTo(x, yy); g.lineTo(x, yy + 3);
+    }
+    g.lineTo(W, 70); g.lineTo(0, 70); g.closePath(); g.fill();
+    // 中景山
     g.fillStyle = "#3a2818";
-    g.beginPath(); g.moveTo(0, 70);
-    for (let x = 0; x <= W; x += 16) g.lineTo(x, 70 - (Math.sin(x*0.04)*8 + ((x*7)%11)));
+    g.beginPath(); g.moveTo(0, 90);
+    for (let x = 0; x <= W; x += 12) g.lineTo(x, 90 - (Math.sin(x*0.06)*6 + ((x*5)%9)));
     g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+    // 地面石板（棋盘 + 砖缝）
+    for (let y = 100; y < H; y += 12) {
+      for (let x = 0; x < W; x += 16) {
+        const c = (((x/16 + y/12) | 0) % 2) ? "#5a4838" : "#4a3828";
+        rect(x, y, 16, 12, c);
+        rect(x, y, 16, 1, "rgba(0,0,0,0.28)");
+        rect(x, y, 1, 12, "rgba(0,0,0,0.28)");
+        if ((((x*7) ^ (y*3)) & 7) === 0) px(x+5, y+6, "#2a1a08");
+      }
+    }
     // 岩石
-    const rocks = [[40,90],[100,150],[160,80],[210,140],[260,100],[290,160],[20,170],[150,170]];
+    const rocks = [[40,108],[100,148],[160,98],[210,140],[260,108],[290,158],[20,168],[150,170],[230,170]];
     for (const [rx, ry] of rocks) drawRock(rx, ry);
-    // 风沙
-    for (let i = 0; i < 40; i++) {
-      const sx = (i * 19 + Game.time * 22) % W;
-      const sy = 30 + (i * 11) % (H - 60);
-      px(sx, sy, "rgba(200,170,120,0.5)");
+    // 飘雪
+    for (let i = 0; i < 36; i++) {
+      const sx = (i * 19 + t * 14) % W;
+      const sy = (i * 11 + t * 22) % H;
+      drawSnowflake(sx|0, sy|0);
+    }
+    // 风沙 / 雾
+    for (let i = 0; i < 22; i++) {
+      const sx = (i * 23 + t * 30) % W;
+      const sy = 40 + (i * 7) % 50;
+      px(sx|0, sy, "rgba(220,200,180,0.35)");
     }
   }
   else if (Game.bg === "facility") {
     // 设施内部 —— 金属冷光
-    rect(0, 0, W, H, "#0e0e16");
+    rect(0, 0, W, H, "#0c0c14");
+    rect(0, 0, W, 100, "#0a0a14");
+    // 后墙细节：竖条纹
+    for (let x = 0; x < W; x += 8) rect(x, 0, 1, 100, "rgba(255,255,255,0.025)");
+    // 冷冻舱阵列
+    for (let i = 0; i < 8; i++) {
+      const cx = 20 + i * 36;
+      // 投影底座
+      rect(cx-2, 90, 20, 4, "rgba(0,0,0,0.6)");
+      // 容器
+      rect(cx,   28, 16, 62, "#0e1828");
+      rect(cx+1, 30, 14, 60, "#1a3a5a");
+      // 玻璃光（脉动）
+      const glow = 0.45 + 0.18 * Math.sin(t*2 + i*0.7);
+      rect(cx+3, 32, 10, 56, `rgba(120,200,255,${glow})`);
+      rect(cx+4, 34, 2, 50, "rgba(255,255,255,0.18)");
+      // 胚胎剪影
+      const eb = (Math.sin(t*1.5 + i)*3) | 0;
+      rect(cx+5, 50 + eb, 6, 10, "#ffaa88");
+      rect(cx+5, 50 + eb, 6, 1,  "#ffd0a0");
+      // 顶 / 底环
+      rect(cx, 28, 16, 2, "#3a6aaa");
+      rect(cx, 88, 16, 2, "#3a6aaa");
+      // 顶部红 LED
+      px(cx+8, 27, ((t*2 + i*0.3) % 2 < 1) ? "#ff5050" : "#a02020");
+    }
+    // 顶部红警示带
+    const warn = (t * 2) % 2 < 1;
+    rect(0, 0, W, 4, warn ? "#a01818" : "#400808");
+    rect(0, 4, W, 1, "rgba(255,80,80,0.4)");
     // 地砖
     for (let y = 100; y < H; y += 16) {
       for (let x = 0; x < W; x += 16) {
-        rect(x, y, 15, 15, ((x+y)/16)%2 ? "#1a1a26" : "#22222e");
-        rect(x, y, 15, 1, "#2a2a3a");
+        rect(x, y, 16, 16, ((x+y)/16)%2 ? "#1a1a26" : "#22222e");
+        rect(x, y, 16, 1, "#2a2a3a");
+        rect(x, y, 1, 16, "#2a2a3a");
       }
     }
-    // 墙
-    rect(0, 0, W, 100, "#0a0a14");
-    for (let i = 0; i < 8; i++) {
-      const cx = 20 + i * 36;
-      // 容器（圆柱形冷冻舱）
-      rect(cx, 30, 16, 60, "#0e1828");
-      rect(cx+1, 31, 14, 58, "#1a3a5a");
-      rect(cx+3, 33, 10, 54, "rgba(120,200,255,0.35)");
-      rect(cx+5, 40 + (Math.sin(Game.time*2 + i)*4|0), 6, 8, "#ffaa88"); // 胚胎剪影
-      rect(cx, 30, 16, 1, "#3a6aaa");
-      rect(cx, 89, 16, 1, "#3a6aaa");
+    // 中央地缝霓虹（脉动）
+    const neonA = 0.45 + 0.25 * Math.sin(t*3);
+    rect(0, 130, W, 1, `rgba(110,180,255,${neonA})`);
+    rect(0, 162, W, 1, `rgba(110,180,255,${neonA})`);
+    // 飘动尘埃
+    for (let i = 0; i < 18; i++) {
+      const sx = (i * 47 + t * 20) % W;
+      const sy = 100 + (i * 13) % (H - 100);
+      px(sx|0, sy, "rgba(180,210,255,0.4)");
     }
-    // 顶部红灯（BOSS 关）
-    if ((Game.time * 2) % 2 < 1) rect(0, 0, W, 4, "#a01818");
-    else rect(0, 0, W, 4, "#400808");
   }
 }
 
@@ -1055,14 +1295,23 @@ function drawPlayer() {
   const p = Game.player;
   const blink = (p.iTime > 0 && Math.floor(p.iTime * 20) % 2 === 0);
   if (blink) return;
-  drawSprite(SPR_PLAYER, PAL_PLAYER, p.x|0, p.y|0, p.dir < 0);
+  // 行走判定
+  const moving = !!(keys["KeyA"]||keys["ArrowLeft"]||keys["KeyD"]||keys["ArrowRight"]
+                  ||keys["KeyW"]||keys["ArrowUp"]||keys["KeyS"]||keys["ArrowDown"]);
+  const bob = moving ? (Math.sin(Game.time * 12) > 0 ? -1 : 0) : 0;
+  // 投影
+  drawShadow((p.x + p.w/2)|0, (p.y + p.h - 1)|0, 12);
+  // 角色（攻击时轻微前倾）
+  const ax = p.attackT > 0 ? p.dir * 1 : 0;
+  drawSprite(SPR_PLAYER, PAL_PLAYER, (p.x + ax)|0, (p.y + bob)|0, p.dir < 0);
   // 长矛
-  const sx = p.x + (p.dir > 0 ? p.w : -8);
-  const sy = p.y + 5;
+  const sx = p.x + ax + (p.dir > 0 ? p.w : -8);
+  const sy = p.y + bob + 5;
   if (p.attackT > 0) {
-    // 挥击：矛伸出
-    rect(sx + (p.dir>0?2:0), sy, 12, 1, "#a06a3a");
-    rect(sx + (p.dir>0?13:0), sy, 1, 2, "#dcdcdc");
+    rect(sx + (p.dir>0?2:0), sy, 12, 1, "#cf8a40");
+    rect(sx + (p.dir>0?2:0), sy+1, 12, 1, "#7a4818");
+    rect(sx + (p.dir>0?13:0), sy, 1, 2, "#fff8d8");
+    px(sx + (p.dir>0?13:0), sy + 2, "#ffd070");
   } else {
     rect(sx + (p.dir>0?2:5), sy + 1, 6, 1, "#a06a3a");
     rect(sx + (p.dir>0?7:4), sy, 1, 2, "#dcdcdc");
@@ -1072,100 +1321,196 @@ function drawPlayer() {
 function drawEnemy(e) {
   const flicker = e.hitT > 0 && Math.floor(e.hitT * 30) % 2 === 0;
   const flip = e.facing < 0;
-  if (e.type === "tx03") drawSprite(SPR_TX03, PAL_TX03, e.x|0, e.y|0, flip);
-  else if (e.type === "tx07") drawSprite(SPR_TX07, PAL_TX07, e.x|0, e.y|0, flip);
-  else if (e.type === "boss") drawSprite(SPR_BOSS, PAL_BOSS, e.x|0, e.y|0, flip);
+  // 投影
+  drawShadow((e.x + e.w/2)|0, (e.y + e.h - 1)|0, e.w + 2);
+  // 待机轻微浮动
+  const bob = e.frozenT > 0 ? 0 : (Math.sin(Game.time * 4 + e.x*0.1) > 0 ? -1 : 0);
+  if (e.type === "tx03")      drawSprite(SPR_TX03, PAL_TX03, e.x|0, (e.y + bob)|0, flip);
+  else if (e.type === "tx07") drawSprite(SPR_TX07, PAL_TX07, e.x|0, (e.y + bob)|0, flip);
+  else if (e.type === "boss") drawSprite(SPR_BOSS, PAL_BOSS, e.x|0, (e.y + bob)|0, flip);
   if (flicker) {
     g.globalCompositeOperation = "lighter";
     g.fillStyle = "rgba(255,255,255,0.6)";
-    g.fillRect(e.x, e.y, e.w, e.h);
+    g.fillRect(e.x, e.y + bob, e.w, e.h);
     g.globalCompositeOperation = "source-over";
   }
   if (e.frozenT > 0) {
     g.fillStyle = "rgba(160,220,255,0.45)";
     g.fillRect(e.x - 1, e.y - 1, e.w + 2, e.h + 2);
+    // 冰晶角
+    px(e.x - 1, e.y - 1, "#e0f4ff"); px(e.x + e.w, e.y - 1, "#e0f4ff");
+    px(e.x - 1, e.y + e.h, "#e0f4ff"); px(e.x + e.w, e.y + e.h, "#e0f4ff");
   }
-  // 血条
+  // 血条（带描边）
   const hpW = e.w;
+  rect(e.x - 1, e.y - 5, hpW + 2, 3, "rgba(0,0,0,0.65)");
   rect(e.x, e.y - 4, hpW, 1, "#3a0a0a");
   rect(e.x, e.y - 4, (hpW * e.hp / e.maxHp)|0, 1, "#ff5050");
   // BOSS 名字
   if (e.isBoss) {
-    drawText("TX-Alpha", e.x - 4, e.y - 14, "#ff8080");
+    drawText("TX-Alpha", e.x - 4, e.y - 16, "#ff8080");
   }
 }
 
 function drawExit() {
   if (!Game.exit) return;
   const t = Game.exit.t;
+  const cx = Game.exit.x + Game.exit.w/2;
+  const cy = Game.exit.y + Game.exit.h/2;
+  // 外发光环
+  for (let i = 0; i < 3; i++) {
+    const r = 10 + i*3 + Math.sin(t*4 - i)*1.5;
+    g.strokeStyle = `rgba(255,200,80,${0.45 - i*0.12})`;
+    g.lineWidth = 1;
+    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI*2); g.stroke();
+  }
   const pulse = 0.6 + 0.4 * Math.sin(t * 6);
-  rect(Game.exit.x, Game.exit.y, Game.exit.w, Game.exit.h, `rgba(255,200,80,${pulse*0.5})`);
+  rect(Game.exit.x, Game.exit.y, Game.exit.w, Game.exit.h, `rgba(255,200,80,${pulse*0.4})`);
   rect(Game.exit.x + 2, Game.exit.y + 2, Game.exit.w - 4, Game.exit.h - 4, "#ffd078");
   rect(Game.exit.x + 4, Game.exit.y + 4, Game.exit.w - 8, Game.exit.h - 8, "#ffffaa");
+  // 旋转粒子
+  for (let i = 0; i < 6; i++) {
+    const a = t*3 + i * (Math.PI*2/6);
+    px((cx + Math.cos(a)*9)|0, (cy + Math.sin(a)*9)|0, "#fff");
+  }
   drawText("→", Game.exit.x + 4, Game.exit.y + 2, "#5a3010");
   drawText("前进", Game.exit.x - 4, Game.exit.y - 12, "#ffd078");
 }
 
 /* -------------------- HUD -------------------- */
 function drawHUD() {
-  // 章节名
-  drawText(LEVELS[Game.level].name, 6, 4, "#ece4d0");
-  // HP
   const p = Game.player;
-  rect(6, H - 14, 80, 6, "#1a0606");
-  rect(6, H - 14, (80 * p.hp / p.maxHp)|0, 6, "#e04040");
-  drawText("HP", 6, H - 24, "#ece4d0");
-  // 技能图标
+  // 顶部章节横幅
+  panel(4, 2, 110, 12, "rgba(8,6,12,0.72)", "rgba(207,138,64,0.6)");
+  drawText(LEVELS[Game.level].name, 8, 4, "#ffe0a8");
+  // 左下 HP 面板
+  panel(4, H - 28, 96, 24, "rgba(8,6,12,0.78)", "rgba(207,138,64,0.6)");
+  // 心形图标
+  const hx = 9, hy = H - 25;
+  px(hx,   hy,   "#ff6464"); px(hx+2, hy,   "#ff6464");
+  px(hx-1, hy+1, "#ff8080"); px(hx,   hy+1, "#ff4040"); px(hx+1, hy+1, "#ff4040");
+  px(hx+2, hy+1, "#ff4040"); px(hx+3, hy+1, "#ff8080");
+  px(hx,   hy+2, "#ff4040"); px(hx+1, hy+2, "#ff4040"); px(hx+2, hy+2, "#ff4040");
+  px(hx+1, hy+3, "#ff4040");
+  drawText("HP", hx + 8, H - 25, "#ffd28a");
+  // 分段 HP 槽
+  rect(8,  H - 16, 86, 8, "#1a0606");
+  rect(9,  H - 15, 84, 6, "#3a0a0a");
+  const hpW = ((84 * p.hp / p.maxHp) | 0);
+  const ratio = p.hp / p.maxHp;
+  const hpColor = ratio > 0.5 ? "#52d860" : (ratio > 0.25 ? "#e8c040" : "#e04040");
+  rect(9, H - 15, hpW, 6, hpColor);
+  rect(9, H - 15, hpW, 1, "rgba(255,255,255,0.35)");
+  // 数值
+  drawText(`${p.hp|0}/${p.maxHp}`, 38, H - 25, "#ffd28a");
+
+  // 右下技能面板
   const skills = [
-    { key: "K", name: "脉冲", cd: p.cd.neural, max: 8,  ok: Game.unlocked.neural, color: "#c060ff" },
-    { key: "L", name: "冷锥", cd: p.cd.frost,  max: 12, ok: Game.unlocked.frost,  color: "#5fc0ff" },
-    { key: "U", name: "焰爆", cd: p.cd.fire,   max: 20, ok: Game.unlocked.fire,   color: "#ff5a30" },
-    { key: "J", name: "长矛", cd: p.cd.atk,    max: 0.35, ok: true,               color: "#dcdcdc" },
+    { key: "J", name: "长矛", cd: p.cd.atk,    max: 0.35, ok: true,                color: "#e8d8a0", icon: "spear" },
+    { key: "K", name: "脉冲", cd: p.cd.neural, max: 8,    ok: Game.unlocked.neural, color: "#c060ff", icon: "wave"  },
+    { key: "L", name: "冷锥", cd: p.cd.frost,  max: 12,   ok: Game.unlocked.frost,  color: "#5fc0ff", icon: "frost" },
+    { key: "U", name: "焰爆", cd: p.cd.fire,   max: 20,   ok: Game.unlocked.fire,   color: "#ff7a30", icon: "fire"  },
   ];
+  const slot = 22, gap = 3;
+  const totalW = skills.length * slot + (skills.length - 1) * gap;
+  const startX = W - 4 - totalW;
+  panel(startX - 4, H - 28, totalW + 8, 24, "rgba(8,6,12,0.78)", "rgba(207,138,64,0.6)");
   for (let i = 0; i < skills.length; i++) {
     const s = skills[i];
-    const x = W - 8 - (skills.length - i) * 26;
-    const y = H - 22;
-    rect(x, y, 22, 18, s.ok ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.85)");
-    rect(x, y, 22, 1, s.ok ? s.color : "#444");
+    const x = startX + i * (slot + gap);
+    const y = H - 25;
+    const h = 18;
+    rect(x, y, slot, h, s.ok ? "rgba(20,15,10,0.85)" : "rgba(10,8,8,0.85)");
+    rect(x, y, slot, 1, s.ok ? s.color : "#444");
+    rect(x, y + h - 1, slot, 1, s.ok ? "rgba(0,0,0,0.5)" : "#222");
+    // 图标（居中）
+    const cxi = x + slot/2, cyi = y + 7;
     if (!s.ok) {
-      drawText("?", x + 8, y + 4, "#666");
-      drawText("--", x + 4, y + 12, "#666");
-    } else {
-      drawText(s.key, x + 7, y + 2, s.color);
-      drawText(s.name, x + 2, y + 12, "#ece4d0");
-      if (s.cd > 0) {
-        const ratio = s.cd / s.max;
-        rect(x, y + 18 - ratio*18, 22, ratio*18, "rgba(0,0,0,0.55)");
-      }
+      drawText("?", cxi - 2, cyi - 3, "#666");
+    } else if (s.icon === "spear") {
+      rect(cxi - 4, cyi, 8, 1, "#a06a3a");
+      px(cxi + 4, cyi,     "#ffffff");
+      px(cxi + 4, cyi - 1, "#dcdcdc");
+    } else if (s.icon === "wave") {
+      g.strokeStyle = s.color; g.lineWidth = 1;
+      g.beginPath(); g.arc(cxi, cyi, 4, 0, Math.PI*2); g.stroke();
+      px(cxi, cyi, s.color);
+    } else if (s.icon === "frost") {
+      px(cxi, cyi - 3, s.color); px(cxi, cyi + 3, s.color);
+      px(cxi - 3, cyi, s.color); px(cxi + 3, cyi, s.color);
+      px(cxi - 2, cyi - 2, s.color); px(cxi + 2, cyi + 2, s.color);
+      px(cxi - 2, cyi + 2, s.color); px(cxi + 2, cyi - 2, s.color);
+      px(cxi, cyi, "#fff");
+    } else if (s.icon === "fire") {
+      rect(cxi - 2, cyi - 1, 4, 4, s.color);
+      px(cxi - 1, cyi - 3, s.color); px(cxi, cyi - 2, "#ffd070"); px(cxi + 1, cyi - 3, s.color);
+      px(cxi, cyi, "#ffffaa");
+    }
+    // 按键
+    drawText(s.key, x + 1, y + 11, s.ok ? s.color : "#666");
+    // 冷却遮罩 + 倒计时
+    if (s.ok && s.cd > 0) {
+      const r = s.cd / s.max;
+      rect(x, y + h - r * h, slot, r * h, "rgba(0,0,0,0.6)");
+      if (s.max > 1) drawText(s.cd.toFixed(1), x + 4, y + 5, "rgba(255,255,255,0.85)");
     }
   }
 }
 
 /* -------------------- 标题 / 结局 -------------------- */
 function drawTitle() {
-  // 渐变 + 星星
-  rect(0, 0, W, H, "#070612");
-  for (let i = 0; i < 60; i++) {
-    const sx = (i * 71) % W, sy = (i * 53) % H;
-    px(sx, sy, i % 7 === 0 ? "#ffd28a" : "#aaa");
+  // 深空渐变
+  for (let y = 0; y < H; y++) {
+    const k = y / H;
+    const r = 8 + k * 18, gn = 6 + k * 14, b = 18 + k * 30;
+    rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
   }
-  // 大土星
+  // 闪烁星
+  for (let i = 0; i < 90; i++) {
+    const sx = (i * 71) % W, sy = (i * 53) % H;
+    const a = 0.4 + 0.6 * Math.abs(Math.sin(Game.time * 1.5 + i));
+    const c = i % 7 === 0 ? `rgba(255,210,138,${a})` : `rgba(220,220,235,${a*0.8})`;
+    px(sx, sy, c);
+  }
+  // 流星
+  const m = (Game.time * 80) % (W + 40);
+  for (let i = 0; i < 8; i++) {
+    px((m - i)|0, (40 + i)|0, `rgba(255,240,200,${1 - i*0.12})`);
+  }
+  // 大土星 + 光晕
+  g.fillStyle = "rgba(230,180,120,0.18)";
+  g.beginPath(); g.arc(W - 65, 45, 50, 0, Math.PI*2); g.fill();
   rect(W - 100, 30, 70, 35, "#cba070");
-  rect(W - 95, 38, 60, 22, "#b08060");
-  g.strokeStyle = "rgba(220,180,120,0.8)";
+  rect(W - 95,  38, 60, 22, "#b08060");
+  rect(W - 92,  32, 30, 1, "rgba(255,232,200,0.6)");
+  g.strokeStyle = "rgba(220,180,120,0.85)";
   g.lineWidth = 1;
   g.beginPath(); g.ellipse(W - 65, 50, 50, 7, -0.15, 0, Math.PI*2); g.stroke();
+  g.strokeStyle = "rgba(255,232,200,0.45)";
+  g.beginPath(); g.ellipse(W - 65, 50, 42, 5, -0.15, 0, Math.PI*2); g.stroke();
 
-  // 标题
-  drawCenterText("泰  坦  遗  种", 60, "#f0d090", 24);
-  drawCenterText("TITAN HEIR", 90, "#a08060", 10);
-  drawCenterText("一  个  像  素  风  求  生  剧", 110, "#7a705c", 11);
+  // 地平线剪影
+  g.fillStyle = "rgba(20,12,28,0.95)";
+  g.beginPath(); g.moveTo(0, 158);
+  for (let x = 0; x <= W; x += 8) g.lineTo(x, 158 - Math.sin(x*0.04)*6 - ((x*7)%9)*0.5);
+  g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+  // 远景半球
+  drawDome(20, 130, 50, 18);
+  drawDome(100, 138, 30, 12);
+  drawDome(245, 134, 40, 16);
 
-  // 提示
+  // 标题（带阴影）
+  const titleY = 50;
+  drawCenterText("泰  坦  遗  种", titleY+2, "rgba(0,0,0,0.7)", 24);
+  drawCenterText("泰  坦  遗  种", titleY,   "#f0d090", 24);
+  drawCenterText("TITAN HEIR", titleY+33, "#a08060", 10);
+  rect(W/2 - 50, titleY+48, 100, 1, "rgba(207,138,64,0.6)");
+  drawCenterText("一  个  像  素  风  求  生  剧", titleY+53, "#a89868", 11);
+
+  // 闪烁开始提示
   if ((Game.time * 1.5) % 2 < 1)
-    drawCenterText("[ 按 空格 / 回车 开始 ]", 150, "#ffd28a", 11);
-  drawCenterText("改编自《泰坦遗种·短篇》", 175, "#5a5040", 9);
+    drawCenterText("[ 按 空格 / 回车 开始 ]", 130, "#ffd28a", 11);
+  drawCenterText("改编自《泰坦遗种 · 短篇》", 175, "#5a5040", 9);
 
   if (consume("Space") || consume("Enter")) {
     Game.level = 0;
@@ -1222,45 +1567,62 @@ function tickChoice() {
   }
 }
 function drawChoice() {
-  rect(0, 0, W, H, "#0a0a14");
-  // 控制台
-  rect(80, 50, 160, 100, "#1a1a26");
-  rect(80, 50, 160, 1, "#cf6a1a");
-  rect(80, 149, 160, 1, "#cf6a1a");
-  drawCenterText("忒修斯主控核心", 60, "#ffd28a", 14);
-  drawCenterText("是否唤醒三千名沉睡的胚胎？", 80, "#ece4d0", 11);
+  // 深色渐变背景
+  for (let y = 0; y < H; y++) {
+    const k = y / H;
+    rect(0, y, W, 1, `rgb(${10+k*8|0},${10+k*8|0},${20+k*16|0})`);
+  }
+  // 红警示带
+  const warn = (Game.time * 2) % 2 < 1;
+  rect(0, 0,   W, 4, warn ? "#a01818" : "#400808");
+  rect(0, H-4, W, 4, warn ? "#a01818" : "#400808");
+  // 控制台面板
+  panel(70, 46, 180, 110, "rgba(20,18,30,0.92)", "rgba(207,106,26,0.85)");
+  rect(70, 60,  180, 1, "rgba(207,106,26,0.6)");
+  rect(70, 144, 180, 1, "rgba(207,106,26,0.6)");
+  drawCenterText("忒 修 斯 主 控 核 心", 50, "#ffd28a", 14);
+  drawCenterText("是否唤醒三千名沉睡的胚胎？", 70, "#ece4d0", 11);
 
-  const opts = ["▸ 不释放，发出紧急求救（守住底线）",
-                "▸ 释放胚胎，开启新人类纪元（潘多拉）"];
+  const opts = ["不释放，发出紧急求救（守住底线）",
+                "释放胚胎，开启新人类纪元（潘多拉）"];
   for (let i = 0; i < 2; i++) {
-    const y = 105 + i * 18;
+    const y = 95 + i * 24;
     if (i === choiceIdx) {
-      rect(85, y - 2, 150, 14, "rgba(207,106,26,0.25)");
-      drawText(opts[i], 92, y, "#ffd28a");
+      rect(80, y - 3, 160, 18, "rgba(207,106,26,0.3)");
+      rect(80, y - 3, 160, 1, "#cf6a1a");
+      rect(80, y + 14, 160, 1, "#cf6a1a");
+      drawText("▸ " + opts[i], 88, y, "#ffd28a");
     } else {
-      drawText(opts[i], 92, y, "#888272");
+      drawText("  " + opts[i], 88, y, "#888272");
     }
   }
-  drawCenterText("[ ↑↓ 选择 · 空格 确认 ]", 165, "#aaa288", 9);
+  drawCenterText("[ ↑↓ 选择 · 空格 确认 ]", 162, "#aaa288", 9);
 }
 function drawEnding() {
-  rect(0, 0, W, H, "#06060c");
-  for (let i = 0; i < 80; i++) {
+  // 渐变背景
+  for (let y = 0; y < H; y++) {
+    const k = y / H;
+    rect(0, y, W, 1, `rgb(${6+k*8|0},${6+k*6|0},${12+k*12|0})`);
+  }
+  for (let i = 0; i < 100; i++) {
     const sx = (i * 71 + Game.time * 3) % W;
     const sy = (i * 53) % H;
-    px(sx|0, sy, i % 5 === 0 ? "#ffd28a" : "#7a7a90");
+    const a = 0.3 + 0.7 * Math.abs(Math.sin(Game.time*2 + i));
+    px(sx|0, sy, i % 5 === 0 ? `rgba(255,210,138,${a})` : `rgba(180,180,210,${a*0.7})`);
   }
   if (Game.ending === "DISTRESS") {
     drawCenterText("结  局  ·  守  望", 30, "#f0d090", 16);
-    drawCenterText("第三件事，他还没想好。", 70, "#ece4d0", 11);
-    drawCenterText("但他知道，无论是什么，他都不再害怕了。", 90, "#ece4d0", 11);
+    rect(W/2 - 60, 56, 120, 1, "rgba(207,138,64,0.6)");
+    drawCenterText("第三件事，他还没想好。", 68, "#ece4d0", 11);
+    drawCenterText("但他知道，无论是什么，他都不再害怕了。", 88, "#ece4d0", 11);
     drawCenterText("因为他已经在泰坦的荒野上，", 115, "#aaa288", 10);
     drawCenterText("从一个普通的工程师，", 130, "#aaa288", 10);
     drawCenterText("走成了一个见过深渊、却没有被深渊吞噬的人。", 145, "#aaa288", 10);
   } else {
     drawCenterText("结  局  ·  种  火", 30, "#ffaa70", 16);
-    drawCenterText("克朗的疯狂梦想成为现实。", 70, "#ece4d0", 11);
-    drawCenterText("三千名新人类睁开了眼睛，", 90, "#ece4d0", 11);
+    rect(W/2 - 60, 56, 120, 1, "rgba(255,120,50,0.6)");
+    drawCenterText("克朗的疯狂梦想成为现实。", 68, "#ece4d0", 11);
+    drawCenterText("三千名新人类睁开了眼睛，", 88, "#ece4d0", 11);
     drawCenterText("而李墨，成了他们的'继承者'。", 110, "#ece4d0", 11);
     drawCenterText("这是另一个故事的开端。", 140, "#aaa288", 10);
   }
@@ -1273,8 +1635,13 @@ function drawEnding() {
 }
 function drawGameOver() {
   rect(0, 0, W, H, "rgba(0,0,0,0.85)");
+  // 红色光晕
+  for (let i = 0; i < 30; i++) {
+    rect(0, 60 + i, W, 1, `rgba(80,${(20-i*0.5)|0},${(20-i*0.5)|0},0.4)`);
+  }
   drawCenterText("你 倒 在 了 泰 坦 的 荒 野", 70, "#e04040", 16);
-  drawCenterText("呼吸器电量耗尽……", 100, "#aaa288", 11);
+  rect(W/2 - 70, 96, 140, 1, "rgba(224,64,64,0.6)");
+  drawCenterText("呼吸器电量耗尽……", 102, "#aaa288", 11);
   drawCenterText("[ 空格 重新挑战本章 ]", 140, "#ffd28a", 11);
   if (consume("Space") || consume("Enter")) {
     Game.player.hp = Game.player.maxHp;
@@ -1330,6 +1697,7 @@ function loop(now) {
     drawables.sort((a, b) => a.y - b.y);
     for (const d of drawables) d.draw();
     drawEffects();
+    drawVignette();
     drawHUD();
     if (Game.state === "DIALOGUE") drawDialogue();
     if (Game.state === "GAMEOVER") drawGameOver();
