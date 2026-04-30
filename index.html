@@ -2,1730 +2,791 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="theme-color" content="#07080d" />
-<title>泰坦遗种 · 像素求生</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#1a1a1a" />
+<title>泰坦遗种 · 阅读器</title>
 <style>
+  :root {
+    --bg: #f4efe6;
+    --bg-elev: #ebe4d6;
+    --fg: #2b2620;
+    --fg-soft: #6b6357;
+    --accent: #a8632b;
+    --accent-soft: #d8b070;
+    --border: rgba(0, 0, 0, 0.12);
+    --shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+    --content-max: 720px;
+    --font-size: 18px;
+    --line-height: 1.85;
+  }
+  html.dark {
+    --bg: #14130f;
+    --bg-elev: #1d1c17;
+    --fg: #d8d4c2;
+    --fg-soft: #8a8270;
+    --accent: #d8b070;
+    --accent-soft: #a8632b;
+    --border: rgba(255, 255, 255, 0.08);
+    --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  }
+  html.sepia {
+    --bg: #f1e7d0;
+    --bg-elev: #e8dcc0;
+    --fg: #4a3a26;
+    --fg-soft: #7a6b50;
+    --accent: #8a4a1c;
+    --accent-soft: #b8782b;
+    --border: rgba(74, 58, 38, 0.18);
+    --shadow: 0 6px 24px rgba(74, 58, 38, 0.1);
+  }
+  * { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
-    background: #07080d;
-    color: #d8d4c2;
-    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
-    height: 100%;
-    overflow: hidden;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    overscroll-behavior: none;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong",
+                 "Times New Roman", Georgia, "Microsoft YaHei", "PingFang SC", serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+    transition: background 0.25s ease, color 0.25s ease;
   }
   body {
+    min-height: 100vh;
+    overscroll-behavior-y: none;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: saturate(180%) blur(10px);
+    -webkit-backdrop-filter: saturate(180%) blur(10px);
+    border-bottom: 1px solid var(--border);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  }
+  .topbar .title {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    color: var(--fg-soft);
+    letter-spacing: 1px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .topbar .title b { color: var(--fg); font-weight: 600; }
+  .icon-btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--fg);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
-  }
-  #game {
-    image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges;
-    image-rendering: crisp-edges;
-    background: #000;
-    box-shadow: 0 0 32px rgba(255, 140, 30, 0.18), 0 0 0 2px #2a2118;
-    cursor: crosshair;
-    max-width: 100%;
-    touch-action: none;
-  }
-  .hint {
-    margin-top: 14px;
-    font-size: 13px;
-    color: #8a8270;
-    letter-spacing: 1px;
-    text-align: center;
-    padding: 0 12px;
-  }
-  .hint b { color: #d8b070; font-weight: normal; }
-  h1.title {
-    font-size: 14px;
-    color: #6a6452;
-    letter-spacing: 4px;
-    margin: 0 0 12px;
-  }
-
-  /* ---------- 触屏控件（默认隐藏，仅在触屏设备上启用） ---------- */
-  .touch-controls { display: none; }
-  .mobile-hint   { display: none; }
-
-  body.touch h1.title       { display: none; }
-  body.touch .hint.desktop  { display: none; }
-  body.touch                {
-    justify-content: flex-start;
-    padding-top: env(safe-area-inset-top);
-  }
-  body.touch #game {
-    width: 100vw;
-    height: auto;
-    box-shadow: 0 0 0 2px #2a2118;
-    margin-top: 4px;
-  }
-  body.touch .mobile-hint {
-    display: block;
-    margin: 6px 12px 0;
-    font-size: 11px;
-    color: #6a6452;
-    text-align: center;
-    line-height: 1.5;
-  }
-  body.touch .touch-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    width: 100%;
-    flex: 1 1 auto;
-    padding: 8px 14px calc(env(safe-area-inset-bottom) + 14px);
-    box-sizing: border-box;
-    pointer-events: none;     /* 让子元素自行接管，避免吞掉 canvas 之外的滚动 */
-  }
-  .touch-controls > * { pointer-events: auto; }
-
-  /* 摇杆 */
-  .joystick {
-    position: relative;
-    width: 140px;
-    height: 140px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(40,30,20,0.55) 0%, rgba(20,15,10,0.45) 70%, rgba(10,8,6,0.35) 100%);
-    border: 2px solid rgba(216,176,112,0.35);
-    box-shadow: inset 0 0 18px rgba(0,0,0,0.6);
-    touch-action: none;
+    font-size: 16px;
+    line-height: 1;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     flex: 0 0 auto;
   }
-  .stick-knob {
-    position: absolute;
-    left: 50%; top: 50%;
-    width: 56px; height: 56px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #f0a050, #cf6a1a 60%, #7a3a14);
-    border: 2px solid #2a2118;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .icon-btn:active { transform: scale(0.96); }
+  .icon-btn svg { width: 18px; height: 18px; }
+
+  /* ---------- Drawer (TOC) ---------- */
+  .drawer-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
     pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 60;
   }
-
-  /* 按钮组 */
-  .action-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, 64px);
-    grid-template-rows: repeat(3, 64px);
-    gap: 10px;
-    flex: 0 0 auto;
+  .drawer-mask.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 86vw);
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    z-index: 61;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow);
   }
-  .btn {
-    -webkit-appearance: none;
+  .drawer.open { transform: translateX(0); }
+  .drawer header {
+    padding: 14px 16px;
+    padding-top: calc(14px + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--border);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    font-size: 13px;
+    color: var(--fg-soft);
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .drawer header b { color: var(--fg); font-weight: 600; letter-spacing: 1px; }
+  .book-switcher {
+    display: flex;
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .book-switcher button {
+    flex: 1;
     appearance: none;
-    border: 2px solid rgba(216,176,112,0.45);
-    border-radius: 50%;
-    background: radial-gradient(circle at 30% 25%, rgba(70,55,40,0.85), rgba(30,22,16,0.85) 70%);
-    color: #e8d4a8;
-    font-size: 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--fg);
+    padding: 8px 10px;
+    border-radius: 8px;
     font-family: inherit;
-    letter-spacing: 1px;
-    padding: 0;
-    text-align: center;
-    line-height: 1.1;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
+    font-size: 13px;
     cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
-  .btn small { display: block; font-size: 9px; color: #8a8270; letter-spacing: 0; margin-top: 1px; }
-  .btn.active {
-    background: radial-gradient(circle at 30% 25%, #ffb060, #cf6a1a 70%);
-    color: #1a1410;
-    box-shadow: 0 0 10px rgba(255,140,30,0.6), inset 0 0 8px rgba(0,0,0,0.4);
+  .book-switcher button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
   }
-  .btn-j  { grid-column: 2; grid-row: 3; border-color: rgba(255,140,30,0.6); }
-  .btn-k  { grid-column: 1; grid-row: 3; }
-  .btn-l  { grid-column: 2; grid-row: 2; }
-  .btn-u  { grid-column: 1; grid-row: 2; }
-  .btn-ok { grid-column: 1 / span 2; grid-row: 1; border-radius: 32px; height: 44px; font-size: 13px; }
+  .toc {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 4px 16px;
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .toc a {
+    display: block;
+    padding: 7px 14px;
+    color: var(--fg);
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    word-break: break-word;
+  }
+  .toc a:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .toc a.active {
+    border-left-color: var(--accent);
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .toc a.lvl-1 { font-weight: 600; padding-left: 14px; }
+  .toc a.lvl-2 { padding-left: 26px; }
+  .toc a.lvl-3 { padding-left: 38px; color: var(--fg-soft); font-size: 13px; }
+  .toc-empty {
+    padding: 20px 16px;
+    color: var(--fg-soft);
+    font-size: 13px;
+    text-align: center;
+  }
 
-  /* 横屏时隐藏触屏面板提示（不强制，但提示用户竖屏） */
-  body.touch .orientation-hint {
+  /* ---------- Settings popover ---------- */
+  .settings {
+    position: fixed;
+    top: 60px;
+    right: 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: var(--shadow);
+    z-index: 55;
     display: none;
-    position: fixed; inset: 0;
-    background: rgba(7,8,13,0.95);
-    color: #d8b070;
-    align-items: center; justify-content: center;
-    font-size: 16px; letter-spacing: 2px; text-align: center;
-    z-index: 100;
-    padding: 0 24px;
+    min-width: 220px;
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    font-size: 13px;
   }
-  @media (orientation: landscape) and (max-height: 500px) {
-    body.touch .orientation-hint { display: flex; }
+  .settings.open { display: block; }
+  .settings .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 2px;
+  }
+  .settings .row + .row { border-top: 1px dashed var(--border); }
+  .settings .label { color: var(--fg-soft); }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .seg button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--fg);
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    min-width: 36px;
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.active { background: var(--accent); color: #fff; }
+
+  /* ---------- Reading content ---------- */
+  main {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 28px 22px 120px;
+    font-size: var(--font-size);
+    line-height: var(--line-height);
+  }
+  main.loading { color: var(--fg-soft); text-align: center; padding-top: 40vh; }
+  main h1, main h2, main h3 {
+    font-family: "Microsoft YaHei", "PingFang SC", "Source Han Serif SC", system-ui, sans-serif;
+    line-height: 1.4;
+    color: var(--fg);
+    scroll-margin-top: 70px;
+  }
+  main h1 {
+    font-size: 1.8em;
+    text-align: center;
+    margin: 1.6em 0 1em;
+    padding-bottom: 0.4em;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 4px;
+  }
+  main h2 {
+    font-size: 1.35em;
+    margin: 2em 0 0.8em;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+  main h3 {
+    font-size: 1.1em;
+    margin: 1.6em 0 0.6em;
+    color: var(--fg);
+  }
+  main p { margin: 0 0 1em; text-indent: 2em; }
+  main blockquote {
+    margin: 1.2em 0;
+    padding: 0.6em 1em;
+    border-left: 3px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--fg-soft);
+    border-radius: 0 6px 6px 0;
+  }
+  main blockquote p { text-indent: 0; margin: 0.3em 0; }
+  main hr {
+    border: 0;
+    height: 1px;
+    background: var(--border);
+    margin: 2em auto;
+    width: 60%;
+  }
+  main ul, main ol { padding-left: 1.6em; margin: 0.6em 0 1.2em; }
+  main li { margin: 0.3em 0; }
+  main em { font-style: italic; color: var(--accent); }
+  main strong { color: var(--fg); font-weight: 700; }
+  main code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    background: var(--bg-elev);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  main a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  /* tables (for the README/operation tables if used) */
+  main table {
+    border-collapse: collapse;
+    margin: 1em auto;
+    font-size: 0.95em;
+  }
+  main th, main td {
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+  }
+  main th { background: var(--bg-elev); }
+
+  /* ---------- Reading progress bar ---------- */
+  #progress {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 2px;
+    background: var(--accent);
+    width: 0%;
+    z-index: 70;
+    transition: width 0.1s linear;
+  }
+
+  /* ---------- Back-to-top ---------- */
+  #toTop {
+    position: fixed;
+    right: 16px;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 40;
+  }
+  #toTop.show { opacity: 0.85; pointer-events: auto; }
+  #toTop:hover { opacity: 1; }
+
+  @media (max-width: 600px) {
+    main { padding: 18px 16px 120px; }
+    .topbar .title { font-size: 13px; letter-spacing: 0; }
   }
 </style>
 </head>
 <body>
-<h1 class="title">— 泰坦遗种 · TITAN HEIR —</h1>
-<canvas id="game" width="960" height="600"></canvas>
-<div class="hint desktop">
-  移动 <b>WASD / 方向键</b> &nbsp;·&nbsp; 长矛攻击 <b>J</b> &nbsp;·&nbsp;
-  神经脉冲 <b>K</b> &nbsp;·&nbsp; 冷冻锥 <b>L</b> &nbsp;·&nbsp; 焰爆 <b>U</b>
-  &nbsp;·&nbsp; 确认 <b>空格 / 回车</b>
-</div>
-<div class="mobile-hint">
-  左侧摇杆移动 &nbsp;·&nbsp; 右侧按钮释放技能 &nbsp;·&nbsp; <b>确认</b> 用于剧情/菜单
+
+<div id="progress"></div>
+
+<header class="topbar">
+  <button class="icon-btn" id="btnToc" aria-label="目录" title="目录">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+  </button>
+  <div class="title" id="bookTitle"><b>泰坦遗种</b> · 阅读器</div>
+  <button class="icon-btn" id="btnSettings" aria-label="设置" title="设置">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</header>
+
+<!-- Settings popover -->
+<div class="settings" id="settings">
+  <div class="row">
+    <span class="label">主题</span>
+    <div class="seg" id="segTheme">
+      <button data-theme="light">日</button>
+      <button data-theme="sepia">纸</button>
+      <button data-theme="dark">夜</button>
+    </div>
+  </div>
+  <div class="row">
+    <span class="label">字号</span>
+    <div class="seg" id="segFont">
+      <button data-font="16">小</button>
+      <button data-font="18">中</button>
+      <button data-font="20">大</button>
+      <button data-font="22">特</button>
+    </div>
+  </div>
+  <div class="row">
+    <span class="label">行距</span>
+    <div class="seg" id="segLine">
+      <button data-line="1.65">紧</button>
+      <button data-line="1.85">中</button>
+      <button data-line="2.1">松</button>
+    </div>
+  </div>
 </div>
 
-<div class="touch-controls" aria-hidden="true">
-  <div class="joystick" id="stick">
-    <div class="stick-knob" id="knob"></div>
+<!-- TOC drawer -->
+<div class="drawer-mask" id="drawerMask"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <header><b>目录</b><span id="bookSubtitle"></span></header>
+  <div class="book-switcher" id="bookSwitcher">
+    <!-- buttons injected by JS -->
   </div>
-  <div class="action-buttons">
-    <button type="button" class="btn btn-ok" data-key="Space">确认</button>
-    <button type="button" class="btn btn-u"  data-key="KeyU">焰爆<small>U</small></button>
-    <button type="button" class="btn btn-l"  data-key="KeyL">冷冻<small>L</small></button>
-    <button type="button" class="btn btn-k"  data-key="KeyK">脉冲<small>K</small></button>
-    <button type="button" class="btn btn-j"  data-key="KeyJ">长矛<small>J</small></button>
-  </div>
-</div>
-<div class="orientation-hint">请竖屏游玩 ▤</div>
+  <nav class="toc" id="toc"></nav>
+</aside>
+
+<main id="content" class="loading">载入中…</main>
+
+<button class="icon-btn" id="toTop" aria-label="回到顶部" title="回到顶部">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
 
 <script>
-"use strict";
-/* =========================================================================
-   《泰坦遗种》像素求生 —— 单文件浏览器游戏
-   改编自仓库内短篇小说 泰坦遗种_短篇.md
-   渲染采用 320x200 像素分辨率，3 倍放大；所有像素美术程序化绘制。
-   ========================================================================= */
+(() => {
+  'use strict';
 
-const cvs = document.getElementById("game");
-const ctx = cvs.getContext("2d");
-ctx.imageSmoothingEnabled = false;
-const W = 320, H = 200, SCALE = 3;       // 逻辑分辨率
-const VW = cvs.width, VH = cvs.height;
+  // ---------- Books ----------
+  const BOOKS = [
+    { id: 'short', file: '泰坦遗种_短篇.md', label: '短篇', title: '泰坦遗种 · 短篇' },
+    { id: 'long',  file: '泰坦遗种_长篇.md', label: '长篇', title: '泰坦遗种 · 长篇' },
+  ];
 
-// 离屏画布——所有绘制先画到 320x200，再放大到屏幕
-const off = document.createElement("canvas");
-off.width = W; off.height = H;
-const g = off.getContext("2d");
-g.imageSmoothingEnabled = false;
+  // ---------- Storage helpers ----------
+  const LS = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
 
-/* -------------------- 输入 -------------------- */
-const keys = {};
-const pressed = {};   // 一次性按下事件
-addEventListener("keydown", e => {
-  if (!keys[e.code]) pressed[e.code] = true;
-  keys[e.code] = true;
-  // 阻止方向键/空格滚动
-  if (["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
-});
-addEventListener("keyup", e => { keys[e.code] = false; });
-function consume(code) { if (pressed[code]) { pressed[code] = false; return true; } return false; }
+  // ---------- Minimal Markdown renderer ----------
+  // Supports: # h1..###### h6, > blockquote (multi-line), --- hr, ordered/unordered lists,
+  // **bold**, *italic*, `code`, [text](href), and paragraphs. Tailored to these novels.
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function renderInline(text) {
+    // Inline code first to protect its content
+    const codes = [];
+    text = text.replace(/`([^`]+)`/g, (_, c) => {
+      codes.push(c);
+      return `\u0000C${codes.length - 1}\u0000`;
+    });
+    text = escapeHtml(text);
+    // Links [text](url)
+    text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, u) =>
+      `<a href="${u}">${t}</a>`);
+    // Bold **x**
+    text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    // Italic *x*  (avoid matching ** which is already handled)
+    text = text.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+    // Restore code
+    text = text.replace(/\u0000C(\d+)\u0000/g, (_, i) =>
+      `<code>${escapeHtml(codes[+i])}</code>`);
+    return text;
+  }
+  function render(md) {
+    // Normalize line endings, drop BOM
+    md = md.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+    const lines = md.split('\n');
+    const out = [];
+    let i = 0;
+    const headings = [];
+    let hCounter = 0;
 
-/* -------------------- 触屏输入（手机竖屏） -------------------- */
-(function setupTouchInput() {
-  const isTouch = (("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0)
-                  && (typeof matchMedia !== "function"
-                      || matchMedia("(hover: none) and (pointer: coarse)").matches);
-  if (!isTouch) return;
-  document.body.classList.add("touch");
+    const flushParagraph = (buf) => {
+      if (!buf.length) return;
+      out.push(`<p>${renderInline(buf.join(' ').trim())}</p>`);
+    };
 
-  // 注入按键状态：与键盘共用 keys / pressed
-  function setKey(code, down) {
-    if (down) {
-      if (!keys[code]) pressed[code] = true;
-      keys[code] = true;
-    } else {
-      keys[code] = false;
+    while (i < lines.length) {
+      let line = lines[i];
+
+      // Blank line
+      if (/^\s*$/.test(line)) { i++; continue; }
+
+      // Heading
+      const mh = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+      if (mh) {
+        const level = mh[1].length;
+        const text = mh[2];
+        const id = `h-${++hCounter}`;
+        headings.push({ id, level, text });
+        out.push(`<h${level} id="${id}">${renderInline(text)}</h${level}>`);
+        i++;
+        continue;
+      }
+
+      // Horizontal rule
+      if (/^\s*(?:---|\*\*\*|___)\s*$/.test(line)) {
+        out.push('<hr/>');
+        i++;
+        continue;
+      }
+
+      // Blockquote (collect consecutive `> ` lines)
+      if (/^\s*>\s?/.test(line)) {
+        const buf = [];
+        while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+          buf.push(lines[i].replace(/^\s*>\s?/, ''));
+          i++;
+        }
+        // Recursively render inner content as paragraphs (keep blank-line splits)
+        const inner = buf.join('\n').split(/\n{2,}/)
+          .map(s => s.trim()).filter(Boolean)
+          .map(s => `<p>${renderInline(s.replace(/\n/g, ' '))}</p>`)
+          .join('');
+        out.push(`<blockquote>${inner}</blockquote>`);
+        continue;
+      }
+
+      // Unordered list
+      if (/^\s*[-*+]\s+/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) {
+          items.push(lines[i].replace(/^\s*[-*+]\s+/, ''));
+          i++;
+        }
+        out.push('<ul>' + items.map(it => `<li>${renderInline(it)}</li>`).join('') + '</ul>');
+        continue;
+      }
+
+      // Ordered list
+      if (/^\s*\d+\.\s+/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+          items.push(lines[i].replace(/^\s*\d+\.\s+/, ''));
+          i++;
+        }
+        out.push('<ol>' + items.map(it => `<li>${renderInline(it)}</li>`).join('') + '</ol>');
+        continue;
+      }
+
+      // Paragraph (collect until blank line / structural marker)
+      const para = [];
+      while (
+        i < lines.length &&
+        !/^\s*$/.test(lines[i]) &&
+        !/^#{1,6}\s+/.test(lines[i]) &&
+        !/^\s*>\s?/.test(lines[i]) &&
+        !/^\s*(?:---|\*\*\*|___)\s*$/.test(lines[i]) &&
+        !/^\s*[-*+]\s+/.test(lines[i]) &&
+        !/^\s*\d+\.\s+/.test(lines[i])
+      ) {
+        para.push(lines[i]);
+        i++;
+      }
+      flushParagraph(para);
+    }
+
+    return { html: out.join('\n'), headings };
+  }
+
+  // ---------- DOM refs ----------
+  const $ = (sel) => document.querySelector(sel);
+  const content = $('#content');
+  const drawer = $('#drawer');
+  const drawerMask = $('#drawerMask');
+  const tocEl = $('#toc');
+  const settingsEl = $('#settings');
+  const bookTitleEl = $('#bookTitle');
+  const bookSubEl = $('#bookSubtitle');
+  const switcherEl = $('#bookSwitcher');
+  const progressBar = $('#progress');
+  const toTopBtn = $('#toTop');
+
+  // ---------- State ----------
+  const state = {
+    bookId: LS.get('reader.book', 'short'),
+    theme: LS.get('reader.theme', 'sepia'),
+    fontSize: LS.get('reader.font', 18),
+    lineHeight: LS.get('reader.line', 1.85),
+    headings: [],
+  };
+
+  // ---------- Build switcher ----------
+  function buildSwitcher() {
+    switcherEl.innerHTML = '';
+    BOOKS.forEach(b => {
+      const btn = document.createElement('button');
+      btn.textContent = b.label;
+      btn.className = b.id === state.bookId ? 'active' : '';
+      btn.onclick = () => loadBook(b.id);
+      switcherEl.appendChild(btn);
+    });
+  }
+
+  // ---------- Theme / font ----------
+  function applyTheme() {
+    const root = document.documentElement;
+    root.classList.remove('dark', 'sepia');
+    if (state.theme === 'dark') root.classList.add('dark');
+    else if (state.theme === 'sepia') root.classList.add('sepia');
+    document.querySelectorAll('#segTheme button').forEach(b =>
+      b.classList.toggle('active', b.dataset.theme === state.theme));
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content',
+      state.theme === 'dark' ? '#14130f' :
+      state.theme === 'sepia' ? '#f1e7d0' : '#f4efe6');
+  }
+  function applyFont() {
+    document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
+    document.documentElement.style.setProperty('--line-height', String(state.lineHeight));
+    document.querySelectorAll('#segFont button').forEach(b =>
+      b.classList.toggle('active', +b.dataset.font === +state.fontSize));
+    document.querySelectorAll('#segLine button').forEach(b =>
+      b.classList.toggle('active', Math.abs(+b.dataset.line - state.lineHeight) < 0.01));
+  }
+
+  // ---------- Book loading ----------
+  async function loadBook(id) {
+    const book = BOOKS.find(b => b.id === id) || BOOKS[0];
+    state.bookId = book.id;
+    LS.set('reader.book', book.id);
+    bookTitleEl.innerHTML = `<b>${book.title.split(' · ')[0]}</b> · ${book.label}`;
+    bookSubEl.textContent = book.label;
+    buildSwitcher();
+    content.classList.add('loading');
+    content.textContent = '载入中…';
+    tocEl.innerHTML = '<div class="toc-empty">载入中…</div>';
+    try {
+      // Cache-bust on hard reload but allow caching otherwise
+      const res = await fetch(book.file, { cache: 'default' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const md = await res.text();
+      const { html, headings } = render(md);
+      state.headings = headings;
+      content.classList.remove('loading');
+      content.innerHTML = html;
+      buildToc(headings);
+      // Restore scroll position
+      const savedPos = LS.get('reader.pos.' + book.id, 0);
+      // Wait a frame so layout is ready
+      requestAnimationFrame(() => window.scrollTo(0, savedPos || 0));
+      updateProgress();
+    } catch (err) {
+      content.classList.remove('loading');
+      content.innerHTML = `
+        <h1>无法加载文件</h1>
+        <p>载入 <code>${book.file}</code> 失败：${escapeHtml(String(err.message || err))}</p>
+        <blockquote><p>如果你是直接用浏览器打开 <code>index.html</code>（<code>file://</code> 协议），
+        浏览器出于安全限制可能会拒绝读取本地文件。请改用一个本地静态服务器，例如：</p>
+        <p><code>python3 -m http.server 8000</code></p>
+        <p>然后访问 <code>http://localhost:8000/</code>。</p></blockquote>
+      `;
+      tocEl.innerHTML = '<div class="toc-empty">载入失败</div>';
     }
   }
 
-  // 防止 iOS 在 canvas / 控件上触发缩放、滚动、长按选择
-  cvs.addEventListener("touchstart", e => e.preventDefault(), { passive: false });
-  cvs.addEventListener("touchmove",  e => e.preventDefault(), { passive: false });
-  document.addEventListener("gesturestart", e => e.preventDefault());
+  // ---------- TOC ----------
+  function buildToc(headings) {
+    if (!headings.length) {
+      tocEl.innerHTML = '<div class="toc-empty">本书暂无标题</div>';
+      return;
+    }
+    const minLevel = Math.min(...headings.map(h => h.level));
+    tocEl.innerHTML = headings.map(h => {
+      const lvl = Math.min(3, h.level - minLevel + 1);
+      return `<a href="#${h.id}" data-id="${h.id}" class="lvl-${lvl}">${escapeHtml(h.text)}</a>`;
+    }).join('');
+    tocEl.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tgt = document.getElementById(a.dataset.id);
+        if (tgt) {
+          const top = tgt.getBoundingClientRect().top + window.scrollY - 60;
+          window.scrollTo({ top, behavior: 'smooth' });
+        }
+        closeDrawer();
+      });
+    });
+  }
+  function updateActiveToc() {
+    if (!state.headings.length) return;
+    const y = window.scrollY + 80;
+    let activeId = state.headings[0].id;
+    for (const h of state.headings) {
+      const el = document.getElementById(h.id);
+      if (!el) continue;
+      if (el.offsetTop <= y) activeId = h.id;
+      else break;
+    }
+    tocEl.querySelectorAll('a').forEach(a =>
+      a.classList.toggle('active', a.dataset.id === activeId));
+  }
 
-  // ---- 动作按钮 ----
-  document.querySelectorAll(".touch-controls .btn").forEach(btn => {
-    const code = btn.dataset.key;
-    let pressedByTouch = false;
-    const down = e => {
-      e.preventDefault();
-      pressedByTouch = true;
-      setKey(code, true);
-      btn.classList.add("active");
-    };
-    const up = e => {
-      if (e) e.preventDefault();
-      if (!pressedByTouch) return;
-      pressedByTouch = false;
-      setKey(code, false);
-      btn.classList.remove("active");
-    };
-    btn.addEventListener("touchstart", down, { passive: false });
-    btn.addEventListener("touchend", up, { passive: false });
-    btn.addEventListener("touchcancel", up, { passive: false });
-    // 桌面浏览器测试用
-    btn.addEventListener("mousedown", down);
-    btn.addEventListener("mouseup", up);
-    btn.addEventListener("mouseleave", up);
-    // 阻止 button 默认 click 触发再次按下
-    btn.addEventListener("click", e => e.preventDefault());
-    btn.addEventListener("contextmenu", e => e.preventDefault());
+  // ---------- Drawer ----------
+  function openDrawer() {
+    drawer.classList.add('open');
+    drawerMask.classList.add('open');
+    drawer.setAttribute('aria-hidden', 'false');
+    // Scroll active item into view
+    const active = tocEl.querySelector('a.active');
+    if (active) active.scrollIntoView({ block: 'center' });
+  }
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    drawerMask.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+  }
+
+  // ---------- Progress ----------
+  function updateProgress() {
+    const h = document.documentElement;
+    const max = (h.scrollHeight - h.clientHeight) || 1;
+    const pct = Math.min(100, Math.max(0, (window.scrollY / max) * 100));
+    progressBar.style.width = pct + '%';
+    toTopBtn.classList.toggle('show', window.scrollY > 600);
+    LS.set('reader.pos.' + state.bookId, Math.round(window.scrollY));
+  }
+
+  // ---------- Wire up events ----------
+  $('#btnToc').addEventListener('click', () => {
+    if (drawer.classList.contains('open')) closeDrawer();
+    else openDrawer();
+  });
+  drawerMask.addEventListener('click', closeDrawer);
+
+  $('#btnSettings').addEventListener('click', (e) => {
+    e.stopPropagation();
+    settingsEl.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (settingsEl.classList.contains('open') &&
+        !settingsEl.contains(e.target) &&
+        e.target.id !== 'btnSettings' &&
+        !e.target.closest('#btnSettings')) {
+      settingsEl.classList.remove('open');
+    }
   });
 
-  // ---- 摇杆 ----
-  const stick = document.getElementById("stick");
-  const knob  = document.getElementById("knob");
-  let stickId = null;       // 当前激活的 touch identifier
-  const dirKeys = ["KeyW", "KeyA", "KeyS", "KeyD"];
-  function clearDirs() { for (const k of dirKeys) setKey(k, false); }
-  function resetKnob() { knob.style.transform = "translate(-50%, -50%)"; }
+  document.querySelectorAll('#segTheme button').forEach(b => {
+    b.addEventListener('click', () => {
+      state.theme = b.dataset.theme;
+      LS.set('reader.theme', state.theme);
+      applyTheme();
+    });
+  });
+  document.querySelectorAll('#segFont button').forEach(b => {
+    b.addEventListener('click', () => {
+      state.fontSize = +b.dataset.font;
+      LS.set('reader.font', state.fontSize);
+      applyFont();
+    });
+  });
+  document.querySelectorAll('#segLine button').forEach(b => {
+    b.addEventListener('click', () => {
+      state.lineHeight = +b.dataset.line;
+      LS.set('reader.line', state.lineHeight);
+      applyFont();
+    });
+  });
 
-  function updateStick(clientX, clientY) {
-    const r = stick.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top  + r.height / 2;
-    let dx = clientX - cx;
-    let dy = clientY - cy;
-    const max = r.width / 2 - 8;
-    const len = Math.hypot(dx, dy);
-    if (len > max) { dx = dx / len * max; dy = dy / len * max; }
-    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    const dead = max * 0.28;
-    setKey("KeyA", dx < -dead);
-    setKey("KeyD", dx >  dead);
-    setKey("KeyW", dy < -dead);
-    setKey("KeyS", dy >  dead);
-  }
+  toTopBtn.addEventListener('click', () =>
+    window.scrollTo({ top: 0, behavior: 'smooth' }));
 
-  stick.addEventListener("touchstart", e => {
-    e.preventDefault();
-    if (stickId !== null) return;
-    const t = e.changedTouches[0];
-    stickId = t.identifier;
-    updateStick(t.clientX, t.clientY);
-  }, { passive: false });
-
-  // 监听 document 上的 touchmove/end，避免手指滑出摇杆区域后失控
-  document.addEventListener("touchmove", e => {
-    if (stickId === null) return;
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      if (t.identifier === stickId) {
-        e.preventDefault();
-        updateStick(t.clientX, t.clientY);
-        break;
-      }
+  // Throttle scroll
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        updateProgress();
+        updateActiveToc();
+        ticking = false;
+      });
+      ticking = true;
     }
-  }, { passive: false });
+  }, { passive: true });
 
-  function stickEnd(e) {
-    if (stickId === null) return;
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === stickId) {
-        stickId = null;
-        clearDirs();
-        resetKnob();
-        break;
-      }
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Escape') { closeDrawer(); settingsEl.classList.remove('open'); }
+    if (e.key === 't' || e.key === 'T') {
+      const order = ['light', 'sepia', 'dark'];
+      state.theme = order[(order.indexOf(state.theme) + 1) % order.length];
+      LS.set('reader.theme', state.theme);
+      applyTheme();
     }
-  }
-  document.addEventListener("touchend", stickEnd);
-  document.addEventListener("touchcancel", stickEnd);
+  });
+
+  // ---------- Init ----------
+  applyTheme();
+  applyFont();
+  buildSwitcher();
+  loadBook(state.bookId);
 })();
-
-/* -------------------- 像素绘图工具 -------------------- */
-// 把字符矩阵当作精灵：每个字符对应调色板里的一种颜色，'.' 视为透明
-function drawSprite(sprite, palette, x, y, flipX) {
-  for (let row = 0; row < sprite.length; row++) {
-    const line = sprite[row];
-    for (let col = 0; col < line.length; col++) {
-      const ch = line[col];
-      if (ch === "." || ch === " ") continue;
-      const c = palette[ch];
-      if (!c) continue;
-      const px = flipX ? (x + (line.length - 1 - col)) : (x + col);
-      g.fillStyle = c;
-      g.fillRect(px, y + row, 1, 1);
-    }
-  }
-}
-function rect(x, y, w, h, c) { g.fillStyle = c; g.fillRect(x|0, y|0, w|0, h|0); }
-function px(x, y, c) { g.fillStyle = c; g.fillRect(x|0, y|0, 1, 1); }
-
-/* -------------------- 精灵定义 -------------------- */
-// 主角 李墨：橙色救援服 + 蓝色面罩
-const SPR_PLAYER = [
-  "...hhhh...",
-  "..hhhhhh..",
-  "..hvvvvh..",
-  "..hvvvvh..",
-  "...nnnn...",
-  ".oo gg oo.",
-  "ooo gg ooo",
-  "ooobbbbooo",
-  "ooobbbbooo",
-  ".oobbbboo.",
-  "..o b b o.",
-  "..o    o..",
-  "...kkkk...",
-  "..kk..kk..",
-];
-const PAL_PLAYER = { h:"#1a1410", v:"#2d6e9c", n:"#c8a070", o:"#cf6a1a", b:"#7a3a14", g:"#6dc6ff", k:"#3a2a14" };
-
-// TX-03：紫水晶感应器 + 银鳞猞猁，14x10（俯视）
-const SPR_TX03 = [
-  "....pppp....pp",
-  "...psssss..ppp",
-  "..ppsPPPsspppp",
-  "..pssPPPsspspp",
-  "..pssssssssspp",
-  "..lpsssssssssp",
-  "..llpsssssspll",
-  "...lllpppplll.",
-  "....l...l..ll.",
-  "....l...l...l.",
-];
-const PAL_TX03 = { p:"#3b2240", s:"#9a82a8", P:"#d56cff", l:"#1c1422" };
-
-// TX-07：蓝鳍声波猎豹（更长），16x12
-const SPR_TX07 = [
-  ".......ffff.....",
-  "......fFFFf.....",
-  ".....fFFFFff....",
-  "....bbssssbbbb..",
-  "...bsssssssbbB..",
-  "...bsCsssssbBB..",
-  "...bssssssssbB..",
-  "..llbbssssbblL..",
-  "..ll..ll..ll.l..",
-  "..l...l...l..l..",
-  "..l...l...l..l..",
-  ".................",
-];
-const PAL_TX07 = { b:"#13345a", s:"#5b8fc4", f:"#a8d8ff", F:"#5fc0ff", C:"#ffffff", l:"#0c1a2a", L:"#0c1a2a", B:"#0c1a2a" };
-
-// TX-Alpha：BOSS，红黑巨蟒型，24x16
-const SPR_BOSS = [
-  ".......RRRRRRRRRR.......",
-  "......RRRRRRRRRRRR......",
-  ".....RRkRRRRRRRRkRR.....",
-  "....RRkkRRRRRRRRkkRR....",
-  "....RRRkRRRRRRRRkRRR....",
-  "...RRRRRRRRRRRRRRRRRR...",
-  "...RRrrRRRRRRRRRRrrRR...",
-  "..RRRrrrRRRRRRRRrrrRRR..",
-  "..RRRRRRRRRRRRRRRRRRRR..",
-  "..kRRRRRRRRRRRRRRRRRRk..",
-  "..kkRRRRRRRRRRRRRRRRkk..",
-  "...kkRRRRRRRRRRRRRRkk...",
-  "....kkRRRRRRRRRRRRkk....",
-  ".....kkRRRRRRRRRRkk.....",
-  "......kkkRRRRRRkkk......",
-  ".........kkkkkk.........",
-];
-const PAL_BOSS = { R:"#a01818", r:"#ff4848", k:"#1a0a0a" };
-
-// 软投影（椭圆 alpha）
-function drawShadow(cx, cy, w) {
-  const h = Math.max(1, (w * 0.35) | 0);
-  for (let i = 0; i < h; i++) {
-    const t = i / h;
-    const ww = (w / 2) * Math.sqrt(1 - (1 - t) * (1 - t));
-    rect(cx - ww, cy + i, ww * 2, 1, `rgba(0,0,0,${0.32 - t * 0.22})`);
-  }
-}
-
-// 草丛（5 像素小簇）
-function drawGrassTuft(x, y, c1, c2) {
-  c1 = c1 || "#3a8a4a"; c2 = c2 || "#6acc6a";
-  px(x,   y+2, c1); px(x+1, y+1, c1); px(x+2, y,   c2);
-  px(x+3, y+1, c1); px(x+4, y+2, c1);
-  px(x+1, y+2, c2); px(x+3, y+2, c2);
-}
-
-// 小花（3x3）
-function drawFlower(x, y, petal) {
-  petal = petal || "#ffd070";
-  px(x+1, y,   petal); px(x,   y+1, petal); px(x+2, y+1, petal); px(x+1, y+2, petal);
-  px(x+1, y+1, "#ffffff");
-}
-
-// 发光蘑菇（5x5）
-function drawMushroom(x, y, cap) {
-  cap = cap || "#c060ff";
-  rect(x+1, y+3, 3, 2, "#e8d8c0");
-  rect(x,   y+1, 5, 2, cap);
-  px(x+1, y, cap); px(x+2, y, cap); px(x+3, y, cap);
-  px(x+1, y+1, "#ffffff"); px(x+3, y+2, "rgba(255,255,255,0.55)");
-  px(x+2, y+4, "#b0a090");
-}
-
-// 雪花颗粒（2 像素）
-function drawSnowflake(x, y) {
-  px(x, y, "#ffffff"); px(x+1, y, "rgba(255,255,255,0.55)");
-}
-
-// 蕨叶（中景）
-function drawFern(x, y) {
-  rect(x+2, y, 1, 6, "#1a4a2a");
-  for (let i = 0; i < 3; i++) {
-    px(x,   y+i*2+1, "#3a8a4a"); px(x+1, y+i*2+1, "#3a8a4a");
-    px(x+3, y+i*2+1, "#3a8a4a"); px(x+4, y+i*2+1, "#3a8a4a");
-  }
-  px(x+2, y, "#6acc6a");
-}
-
-// 云朵（飘动剪影）
-function drawCloud(x, y, w, c) {
-  c = c || "rgba(255,220,180,0.55)";
-  rect(x+2, y+1, w-4, 3, c);
-  rect(x+1, y+2, w-2, 1, c);
-  rect(x,   y+3, w,   1, c);
-  rect(x+3, y,   w-7, 1, c);
-}
-
-// 圆角面板（HUD / 对话）
-function panel(x, y, w, h, fill, border) {
-  rect(x+1, y, w-2, h, fill);
-  rect(x, y+1, w, h-2, fill);
-  if (border) {
-    rect(x+1, y, w-2, 1, border);
-    rect(x+1, y+h-1, w-2, 1, border);
-    rect(x, y+1, 1, h-2, border);
-    rect(x+w-1, y+1, 1, h-2, border);
-  }
-}
-
-// 紫色发光森林树（前景，分层：树干 + 树冠 + 高光 + 投影）
-function drawTree(x, y) {
-  // 投影
-  rect(x+1, y+11, 11, 2, "rgba(0,0,0,0.35)");
-  // 树干
-  rect(x+5, y+7, 3, 5, "#2a1530");
-  rect(x+5, y+7, 1, 5, "#1a0820");
-  // 树冠暗底
-  rect(x+1, y+1, 11, 7, "#2a1240");
-  rect(x+2, y,   9,  1, "#3a1a52");
-  // 边缘暗线
-  rect(x+1, y+1, 1, 5, "#1a0828");
-  rect(x+11, y+1, 1, 5, "#1a0828");
-  // 树冠主色
-  rect(x+2, y+2, 9, 4, "#4a2070");
-  rect(x+3, y+3, 7, 2, "#6a30a0");
-  // 发光斑点
-  px(x+4, y+2, "#c060ff"); px(x+8, y+4, "#c060ff");
-  px(x+6, y+3, "#ffaaff"); px(x+9, y+2, "#aa80ff");
-  px(x+3, y+5, "#80a0ff");
-}
-
-// 岩石（多层 + 高光 + 投影）
-function drawRock(x, y) {
-  rect(x+1, y+5, 11, 3, "rgba(0,0,0,0.35)");
-  rect(x,   y+3, 12, 4, "#2a1f14");
-  rect(x+1, y+2, 10, 4, "#5a4838");
-  rect(x+2, y+1, 8,  3, "#7a6850");
-  rect(x+3, y,   5,  2, "#9a8868");
-  px(x+4, y+1, "#c8b090"); px(x+5, y+1, "#c8b090");
-  px(x+8, y+3, "#3a2a1a"); px(x+2, y+5, "#3a2a1a");
-}
-
-// 逃生舱（关卡 1 装饰）
-function drawPod(x, y) {
-  // 投影
-  rect(x-2, y+18, 32, 3, "rgba(0,0,0,0.5)");
-  // 主体
-  rect(x,   y+6, 28, 12, "#1a1a22");
-  rect(x+1, y+5, 26, 12, "#3a3a44");
-  rect(x+2, y+4, 24, 12, "#52525e");
-  rect(x+3, y+5, 22, 10, "#6a6a78");
-  rect(x+3, y+5, 22, 1, "#8a8a98");
-  // 舷窗
-  rect(x+8,  y+8,  12, 4, "#1a3a55");
-  rect(x+9,  y+8,  10, 1, "#90c8e0");
-  rect(x+9,  y+9,  10, 2, "#c0e8ff");
-  rect(x+10, y+9,  6,  1, "#ffffff");
-  // 裂缝 / 烧灼
-  for (let i = 0; i < 6; i++) px(x+12+i, y+11+(i&1), "#1a3a5a");
-  // 鳍灯
-  px(x+5,  y+13, "#cf6a1a"); px(x+22, y+13, "#cf6a1a");
-  // 起落架
-  rect(x+3,  y+17, 2, 4, "#2a2a30");
-  rect(x+23, y+17, 2, 4, "#2a2a30");
-}
-
-// 半球形建筑（远景）
-function drawDome(x, y, w, h) {
-  for (let i = 0; i < h; i++) {
-    const t = i / h;
-    const ww = w * Math.sqrt(1 - t*t);
-    const cx = x + w/2;
-    const col = i < 2 ? "#6a5a48"
-              : i < 5 ? "#4a4030"
-              : i < 9 ? "#2a2520"
-              : "#1a1812";
-    rect(cx - ww, y + h - i, ww*2, 1, col);
-  }
-  // 玻璃高光
-  rect(x + w*0.20, y + h - h*0.55, 2, 3, "rgba(255,220,160,0.45)");
-  // Ω 标志
-  g.fillStyle = "#cf8a40";
-  g.fillRect(x + w/2 - 4, y + h - 6, 1, 4);
-  g.fillRect(x + w/2 + 3, y + h - 6, 1, 4);
-  g.fillRect(x + w/2 - 3, y + h - 6, 6, 1);
-  g.fillRect(x + w/2 - 5, y + h - 2, 3, 1);
-  g.fillRect(x + w/2 + 2, y + h - 2, 3, 1);
-  // 底部小窗
-  px(x + w*0.35, y + h - 2, "#ffd28a");
-  px(x + w*0.65, y + h - 2, "#ffd28a");
-}
-
-// 暗角后处理
-function drawVignette() {
-  const grad = g.createRadialGradient(W/2, H/2, 60, W/2, H/2, 180);
-  grad.addColorStop(0, "rgba(0,0,0,0)");
-  grad.addColorStop(1, "rgba(0,0,0,0.55)");
-  g.fillStyle = grad;
-  g.fillRect(0, 0, W, H);
-}
-
-/* -------------------- 游戏对象 -------------------- */
-const Game = {
-  state: "TITLE",        // TITLE | DIALOGUE | PLAY | CHOICE | ENDING | GAMEOVER
-  level: 0,
-  time: 0,
-  flash: 0,              // 受击屏幕红闪
-  shake: 0,
-  player: null,
-  enemies: [],
-  effects: [],           // 技能特效 / 攻击特效
-  exit: null,            // 关卡过关传送门
-  bg: "sand",
-  dialogue: { lines: [], i: 0, after: null, charT: 0 },
-  ending: null,
-  unlocked: { neural: false, frost: false, fire: false },
-};
-
-function makePlayer() {
-  return {
-    x: 60, y: 100, w: 10, h: 14,
-    hp: 100, maxHp: 100,
-    dir: 1,             // -1 左，+1 右
-    facing: { x: 1, y: 0 },
-    speed: 70,
-    attackT: 0,         // 攻击动画计时
-    iTime: 0,           // 受击无敌
-    cd: { atk: 0, neural: 0, frost: 0, fire: 0 },
-  };
-}
-
-function spawnEnemy(type, x, y) {
-  const base = {
-    type, x, y, hp: 20, maxHp: 20,
-    w: 14, h: 10, speed: 50, dmg: 12,
-    hitT: 0, atkT: 0, frozenT: 0, slowT: 0,
-    facing: -1,
-  };
-  if (type === "tx03") Object.assign(base, { hp: 30, maxHp: 30, w: 14, h: 10, speed: 55, dmg: 14, color: "#c060ff" });
-  if (type === "tx07") Object.assign(base, { hp: 55, maxHp: 55, w: 16, h: 12, speed: 65, dmg: 20, color: "#5fc0ff" });
-  if (type === "boss") Object.assign(base, { hp: 220, maxHp: 220, w: 24, h: 16, speed: 45, dmg: 28, color: "#ff4848", isBoss: true });
-  return base;
-}
-
-function pushEffect(e) { Game.effects.push(e); }
-
-/* -------------------- 关卡 -------------------- */
-const LEVELS = [
-  // 第一章 坠落
-  {
-    name: "第一章 · 坠落",
-    bg: "sand",
-    intro: [
-      ["系统", "李墨，男，29 岁，工程师。"],
-      ["系统", "奥德赛号客运飞船在跃迁出口附近遭遇引力扰动……"],
-      ["系统", "你被弹射至泰坦——土星最大的卫星。"],
-      ["腕表", "警告：检测到异常生物信号。建议：立刻寻找掩体。"],
-      ["李墨", "（举起金属支架）……不能死在这里。"],
-    ],
-    setup() {
-      Game.bg = "sand";
-      Game.player = makePlayer();
-      Game.player.x = 50; Game.player.y = 110;
-      Game.enemies = [ spawnEnemy("tx03", 240, 100) ];
-      Game.exit = null;
-    },
-    onClear() {
-      Game.unlocked.neural = true;
-      Game.dialogue = mkDialogue([
-        ["腕表", "检测到基因结晶体（Gene Crystal）。"],
-        ["腕表", "宿主体内检测到第三代纳米共生体。"],
-        ["腕表", "技能激活：神经麻痹脉冲（K 键）。"],
-        ["李墨", "原来'普罗米修斯'计划埋下的，是这种东西……"],
-      ], () => nextLevel());
-      Game.state = "DIALOGUE";
-    },
-  },
-  // 第二章 森林
-  {
-    name: "第二章 · 森林",
-    bg: "forest",
-    intro: [
-      ["腕表", "环境分析：定向基因改造植被。"],
-      ["腕表", "警告：部分 T-序列植物含神经毒素。"],
-      ["李墨", "为什么泰坦上有可以呼吸的氧气？为什么有外星生物？"],
-      ["李墨", "……我必须穿过这片森林。"],
-    ],
-    setup() {
-      Game.bg = "forest";
-      Game.player.x = 30; Game.player.y = 100;
-      Game.enemies = [
-        spawnEnemy("tx03", 200, 60),
-        spawnEnemy("tx03", 240, 140),
-        spawnEnemy("tx03", 280, 100),
-      ];
-    },
-    onClear() {
-      Game.dialogue = mkDialogue([
-        ["腕表", "检测到附近无线信号。信源类型：私有协议。"],
-        ["腕表", "……奥米伽科技内部协议，代号：忒修斯。"],
-        ["李墨", "奥米伽……安德烈·克朗的方舟计划。"],
-        ["李墨", "我正坐在一座尚未冷却的坟墓上。"],
-      ], () => nextLevel());
-      Game.state = "DIALOGUE";
-    },
-  },
-  // 第三章 忒修斯之环
-  {
-    name: "第三章 · 忒修斯之环",
-    bg: "rocks",
-    intro: [
-      ["李墨", "三只 TX-07……不能正面冲突。"],
-      ["腕表", "攻击模式：声波震荡。建议保持距离。"],
-      ["李墨", "（深呼吸）来吧。"],
-    ],
-    setup() {
-      Game.bg = "rocks";
-      Game.player.x = 30; Game.player.y = 100;
-      Game.enemies = [
-        spawnEnemy("tx07", 220, 70),
-        spawnEnemy("tx07", 260, 130),
-        spawnEnemy("tx07", 290, 90),
-      ];
-    },
-    onClear() {
-      Game.unlocked.frost = true;
-      Game.dialogue = mkDialogue([
-        ["腕表", "吸收基因结晶体——TX-07。"],
-        ["腕表", "技能激活：声波冷冻锥（L 键）。"],
-        ["李墨", "（梦中）……第七代 TX 系列已稳定。它们将是新人类的牧人……"],
-        ["李墨", "那是克朗的声音。他没有死。"],
-      ], () => nextLevel());
-      Game.state = "DIALOGUE";
-    },
-  },
-  // 第四章 第七层 BOSS
-  {
-    name: "第四章 · 第七层",
-    bg: "facility",
-    intro: [
-      ["腕表", "忒修斯主控核心：检测到 TX-Alpha。威胁等级：极高。"],
-      ["李墨", "三千名沉睡的胚胎……还有这只东西。"],
-      ["李墨", "克朗，你的疯狂梦想，到此为止。"],
-    ],
-    setup() {
-      Game.bg = "facility";
-      Game.player.x = 30; Game.player.y = 100;
-      Game.enemies = [ spawnEnemy("boss", 240, 100) ];
-    },
-    onClear() {
-      Game.unlocked.fire = true;
-      Game.dialogue = mkDialogue([
-        ["腕表", "TX-Alpha 已击败。基因结晶体高度稀有。"],
-        ["腕表", "技能激活：基因焰爆（U 键）。"],
-        ["系统", "忒修斯主控核心：试炼通过。"],
-        ["系统", "摇篮激活权限已授予。是否开启三千名志愿者胚胎？"],
-        ["李墨", "（抬手悬于按钮之上）……我不是任何人的继承者。"],
-      ], () => { Game.state = "CHOICE"; });
-    },
-  },
-];
-
-/* -------------------- 对话系统 -------------------- */
-function mkDialogue(lines, after) {
-  return { lines, i: 0, after: after || null, charT: 0 };
-}
-function tickDialogue(dt) {
-  const d = Game.dialogue;
-  d.charT += dt * 60;       // 字符速度
-  if (consume("Space") || consume("Enter")) {
-    const line = d.lines[d.i];
-    const fullLen = line[1].length;
-    if (d.charT < fullLen) {
-      d.charT = fullLen;     // 第一次按：直接显示完
-    } else {
-      d.i++;
-      d.charT = 0;
-      if (d.i >= d.lines.length) {
-        if (d.after) d.after();
-        else Game.state = "PLAY";
-      }
-    }
-  }
-}
-function drawDialogue() {
-  const d = Game.dialogue;
-  const line = d.lines[d.i];
-  if (!line) return;
-  const [who, text] = line;
-  // 渐变面板（自上而下加深）
-  for (let i = 0; i < 64; i++) {
-    rect(0, H - 64 + i, W, 1, `rgba(8,5,12,${0.55 + i*0.006})`);
-  }
-  // 上下橙边
-  rect(0, H - 64, W, 1, "rgba(207,106,26,0.9)");
-  rect(0, H - 63, W, 1, "rgba(207,106,26,0.35)");
-  rect(0, H - 1,  W, 1, "rgba(207,106,26,0.9)");
-  // 名字徽章
-  g.font = "10px 'Microsoft YaHei','PingFang SC',sans-serif";
-  const nw = ((g.measureText(who).width)|0) + 12;
-  rect(8, H - 58, nw, 12, "rgba(207,106,26,0.85)");
-  rect(8, H - 58, nw, 1, "#ffd28a");
-  rect(8, H - 47, nw, 1, "rgba(80,30,8,0.7)");
-  drawText(who, 14, H - 56, "#1a0a04");
-  // 文本（带打字机效果）
-  const visible = Math.min(line[1].length, Math.floor(d.charT));
-  drawText(text.slice(0, visible), 12, H - 40, "#f4ecd8", 296);
-  // 提示
-  if (d.charT >= text.length) {
-    if ((Game.time * 2) % 2 < 1) {
-      rect(W - 44, H - 13, 38, 10, "rgba(207,106,26,0.65)");
-      drawText("空格 ▸", W - 41, H - 13, "#fff5d8");
-    }
-  }
-}
-
-/* -------------------- 文本绘制（点阵伪字体，仅 ASCII；中文走系统字体） --------*/
-// 因为程序化绘制中文太重，这里直接用 canvas 系统字体；为保持像素风，禁用平滑
-function drawText(str, x, y, color, maxW) {
-  g.font = "10px 'Microsoft YaHei','PingFang SC','Noto Sans CJK SC',sans-serif";
-  g.textBaseline = "top";
-  g.fillStyle = color || "#fff";
-  if (!maxW) { g.fillText(str, x, y); return; }
-  // 简单按字符宽度换行
-  let line = "", yy = y;
-  for (const ch of str) {
-    const test = line + ch;
-    if (g.measureText(test).width > maxW) {
-      g.fillText(line, x, yy);
-      yy += 12; line = ch;
-    } else line = test;
-  }
-  if (line) g.fillText(line, x, yy);
-}
-function drawCenterText(str, y, color, size) {
-  g.font = (size||12) + "px 'Microsoft YaHei','PingFang SC',sans-serif";
-  g.textBaseline = "top";
-  g.fillStyle = color || "#fff";
-  const w = g.measureText(str).width;
-  g.fillText(str, (W - w) / 2, y);
-}
-
-/* -------------------- 背景渲染 -------------------- */
-function drawBackground() {
-  const t = Game.time;
-
-  if (Game.bg === "sand") {
-    // 黎明的琥珀天（更柔和的渐变）
-    for (let y = 0; y < 78; y++) {
-      const k = y / 78;
-      const r = 245 - k * 70, gn = 175 - k * 90, b = 115 - k * 75;
-      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
-    }
-    // 缓慢飘动的云
-    drawCloud((((t*4)|0) % (W+40)) - 40,        24, 24, "rgba(255,236,200,0.55)");
-    drawCloud((((t*3+120)|0) % (W+40)) - 40,    40, 18, "rgba(255,220,180,0.45)");
-    drawCloud((((t*2+200)|0) % (W+40)) - 40,    12, 30, "rgba(255,250,220,0.65)");
-    // 土星 + 光晕
-    g.fillStyle = "rgba(230,194,128,0.22)";
-    g.beginPath(); g.arc(250, 30, 22, 0, Math.PI*2); g.fill();
-    rect(220, 12, 60, 30, "#e6c280");
-    rect(225, 18, 50, 18, "#d8a860");
-    rect(230, 22, 40, 12, "#b88848");
-    rect(232, 18, 6, 1, "rgba(255,255,255,0.45)");
-    g.strokeStyle = "rgba(220,180,120,0.85)";
-    g.lineWidth = 1;
-    g.beginPath(); g.ellipse(250, 30, 38, 6, 0, 0, Math.PI*2); g.stroke();
-    g.strokeStyle = "rgba(255,232,200,0.4)";
-    g.beginPath(); g.ellipse(250, 30, 32, 4, 0, 0, Math.PI*2); g.stroke();
-    // 远山剪影
-    g.fillStyle = "#5a2818";
-    g.beginPath(); g.moveTo(0, 80);
-    for (let x = 0; x <= W; x += 8) g.lineTo(x, 78 + Math.sin(x*0.04)*4 - ((x*7)%9)*0.4);
-    g.lineTo(W, 95); g.lineTo(0, 95); g.closePath(); g.fill();
-    // 中景半球建筑
-    drawDome(60, 50, 60, 22);
-    drawDome(160, 60, 36, 14);
-    // 沙地渐变
-    for (let y = 80; y < H; y++) {
-      const k = (y - 80) / (H - 80);
-      const r = 215 - k * 85, gn = 135 - k * 65, b = 75 - k * 35;
-      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
-    }
-    // 沙丘剪影
-    g.fillStyle = "#7a3a18";
-    g.beginPath(); g.moveTo(0, 95);
-    for (let x = 0; x <= W; x += 8) {
-      const yy = 95 + Math.sin(x*0.05) * 4 + Math.sin(x*0.13) * 2;
-      g.lineTo(x, yy);
-    }
-    g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
-    // 沙地阴影波纹
-    for (let i = 0; i < 6; i++) {
-      const sy = 116 + i * 12;
-      rect(0, sy, W, 1, "rgba(90,30,12,0.18)");
-    }
-    // 关卡 1 装饰：逃生舱
-    if (Game.level === 0) drawPod(8, 130);
-    // 沙地草丛 / 花
-    const sandTufts = [[40,150],[70,162],[120,170],[200,160],[230,178],[270,168],[296,182],[58,180],[150,185]];
-    for (const [tx, ty] of sandTufts) drawGrassTuft(tx, ty, "#7a4a18", "#c08a40");
-    drawFlower(110, 165, "#ff9050");
-    drawFlower(245, 172, "#ffd070");
-    drawFlower(180, 178, "#ff7050");
-    // 飞扬的沙粒
-    for (let i = 0; i < 28; i++) {
-      const sx = (i * 37 + (t * 18 | 0)) % W;
-      const sy = 100 + (i * 13 + (t * 6 | 0)) % (H - 100);
-      px(sx, sy, "rgba(80,40,16,0.55)");
-    }
-  }
-  else if (Game.bg === "forest") {
-    // 紫色森林天空
-    for (let y = 0; y < H; y++) {
-      const k = y / H;
-      const r = 28 + k * 25, gn = 8 + k * 18, b = 50 + k * 35;
-      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
-    }
-    // 远景大树剪影（圆顶 + 树干）
-    g.fillStyle = "rgba(28,12,42,0.85)";
-    for (let i = 0; i < 5; i++) {
-      const cx = 30 + i * 70 + Math.sin(i*1.3)*10;
-      g.beginPath(); g.arc(cx, 70, 18 + (i&1)*4, 0, Math.PI*2); g.fill();
-      rect(cx-1, 70, 2, 22, "rgba(20,8,30,0.85)");
-    }
-    // 远树发光斑点
-    for (let i = 0; i < 16; i++) {
-      const sx = (i * 41) % W;
-      const sy = 56 + (i * 13) % 22;
-      const a = 0.4 + 0.6 * Math.abs(Math.sin(t*1.5 + i));
-      px(sx, sy, `rgba(192,96,255,${a*0.6})`);
-    }
-    // 菌毯地面渐变
-    for (let y = H - 50; y < H; y++) {
-      const k = (y - (H - 50)) / 50;
-      const r = 20 + k * 12, gn = 52 + k * 32, b = 72 + k * 32;
-      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
-    }
-    // 菌毯纹理（确定性散点）
-    for (let i = 0; i < 90; i++) {
-      const sx = (i * 41) % W;
-      const sy = H - 50 + ((i * 17) % 50);
-      const c = (i % 4 === 0) ? "#3a8a78" : (i % 4 === 1 ? "#2a6a5a" : "#1a4a3a");
-      px(sx, sy, c);
-    }
-    // 蕨类植物中景
-    const ferns = [[30, H-58],[140, H-56],[210, H-60],[260, H-58],[300, H-56],[78, H-57]];
-    for (const [fx, fy] of ferns) drawFern(fx, fy);
-    // 树
-    const trees = [
-      [20, 38], [60, 28], [110, 48], [160, 28], [200, 58], [250, 32], [296, 48],
-      [40, 130], [90, 142], [150, 145], [220, 148], [280, 138], [10, 152], [180, 152],
-    ];
-    for (const [tx, ty] of trees) drawTree(tx, ty);
-    // 地面发光蘑菇
-    drawMushroom(56, 168, "#c060ff");
-    drawMushroom(112, 175, "#ff60a0");
-    drawMushroom(178, 170, "#60d0ff");
-    drawMushroom(232, 178, "#c060ff");
-    drawMushroom(282, 168, "#ff60a0");
-    drawMushroom(20, 180, "#60d0ff");
-    // 萤火虫（飘动 + 闪烁）
-    for (let i = 0; i < 24; i++) {
-      const sx = (i * 53 + t * 8) % W;
-      const sy = 30 + ((i * 19 + t * 3) % (H - 60)) + Math.sin(t*2 + i)*4;
-      const a = 0.4 + 0.6 * Math.abs(Math.sin(t*3 + i));
-      px(sx|0, sy|0, `rgba(170,255,200,${a})`);
-      px((sx|0)+1, sy|0, `rgba(120,220,160,${a*0.6})`);
-    }
-  }
-  else if (Game.bg === "rocks") {
-    // 黄昏天
-    for (let y = 0; y < H; y++) {
-      const k = y / H;
-      const r = 75 + k * 50, gn = 55 + k * 30, b = 65 + k * 20;
-      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
-    }
-    // 远雪山
-    g.fillStyle = "#1f1822";
-    g.beginPath(); g.moveTo(0, 60);
-    for (let x = 0; x <= W; x += 16) g.lineTo(x, 60 - (Math.sin(x*0.04)*10 + ((x*7)%13)));
-    g.lineTo(W, 90); g.lineTo(0, 90); g.closePath(); g.fill();
-    // 雪盖
-    g.fillStyle = "rgba(220,220,235,0.85)";
-    g.beginPath(); g.moveTo(0, 60);
-    for (let x = 0; x <= W; x += 16) {
-      const yy = 60 - (Math.sin(x*0.04)*10 + ((x*7)%13));
-      g.lineTo(x, yy); g.lineTo(x, yy + 3);
-    }
-    g.lineTo(W, 70); g.lineTo(0, 70); g.closePath(); g.fill();
-    // 中景山
-    g.fillStyle = "#3a2818";
-    g.beginPath(); g.moveTo(0, 90);
-    for (let x = 0; x <= W; x += 12) g.lineTo(x, 90 - (Math.sin(x*0.06)*6 + ((x*5)%9)));
-    g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
-    // 地面石板（棋盘 + 砖缝）
-    for (let y = 100; y < H; y += 12) {
-      for (let x = 0; x < W; x += 16) {
-        const c = (((x/16 + y/12) | 0) % 2) ? "#5a4838" : "#4a3828";
-        rect(x, y, 16, 12, c);
-        rect(x, y, 16, 1, "rgba(0,0,0,0.28)");
-        rect(x, y, 1, 12, "rgba(0,0,0,0.28)");
-        if ((((x*7) ^ (y*3)) & 7) === 0) px(x+5, y+6, "#2a1a08");
-      }
-    }
-    // 岩石
-    const rocks = [[40,108],[100,148],[160,98],[210,140],[260,108],[290,158],[20,168],[150,170],[230,170]];
-    for (const [rx, ry] of rocks) drawRock(rx, ry);
-    // 飘雪
-    for (let i = 0; i < 36; i++) {
-      const sx = (i * 19 + t * 14) % W;
-      const sy = (i * 11 + t * 22) % H;
-      drawSnowflake(sx|0, sy|0);
-    }
-    // 风沙 / 雾
-    for (let i = 0; i < 22; i++) {
-      const sx = (i * 23 + t * 30) % W;
-      const sy = 40 + (i * 7) % 50;
-      px(sx|0, sy, "rgba(220,200,180,0.35)");
-    }
-  }
-  else if (Game.bg === "facility") {
-    // 设施内部 —— 金属冷光
-    rect(0, 0, W, H, "#0c0c14");
-    rect(0, 0, W, 100, "#0a0a14");
-    // 后墙细节：竖条纹
-    for (let x = 0; x < W; x += 8) rect(x, 0, 1, 100, "rgba(255,255,255,0.025)");
-    // 冷冻舱阵列
-    for (let i = 0; i < 8; i++) {
-      const cx = 20 + i * 36;
-      // 投影底座
-      rect(cx-2, 90, 20, 4, "rgba(0,0,0,0.6)");
-      // 容器
-      rect(cx,   28, 16, 62, "#0e1828");
-      rect(cx+1, 30, 14, 60, "#1a3a5a");
-      // 玻璃光（脉动）
-      const glow = 0.45 + 0.18 * Math.sin(t*2 + i*0.7);
-      rect(cx+3, 32, 10, 56, `rgba(120,200,255,${glow})`);
-      rect(cx+4, 34, 2, 50, "rgba(255,255,255,0.18)");
-      // 胚胎剪影
-      const eb = (Math.sin(t*1.5 + i)*3) | 0;
-      rect(cx+5, 50 + eb, 6, 10, "#ffaa88");
-      rect(cx+5, 50 + eb, 6, 1,  "#ffd0a0");
-      // 顶 / 底环
-      rect(cx, 28, 16, 2, "#3a6aaa");
-      rect(cx, 88, 16, 2, "#3a6aaa");
-      // 顶部红 LED
-      px(cx+8, 27, ((t*2 + i*0.3) % 2 < 1) ? "#ff5050" : "#a02020");
-    }
-    // 顶部红警示带
-    const warn = (t * 2) % 2 < 1;
-    rect(0, 0, W, 4, warn ? "#a01818" : "#400808");
-    rect(0, 4, W, 1, "rgba(255,80,80,0.4)");
-    // 地砖
-    for (let y = 100; y < H; y += 16) {
-      for (let x = 0; x < W; x += 16) {
-        rect(x, y, 16, 16, ((x+y)/16)%2 ? "#1a1a26" : "#22222e");
-        rect(x, y, 16, 1, "#2a2a3a");
-        rect(x, y, 1, 16, "#2a2a3a");
-      }
-    }
-    // 中央地缝霓虹（脉动）
-    const neonA = 0.45 + 0.25 * Math.sin(t*3);
-    rect(0, 130, W, 1, `rgba(110,180,255,${neonA})`);
-    rect(0, 162, W, 1, `rgba(110,180,255,${neonA})`);
-    // 飘动尘埃
-    for (let i = 0; i < 18; i++) {
-      const sx = (i * 47 + t * 20) % W;
-      const sy = 100 + (i * 13) % (H - 100);
-      px(sx|0, sy, "rgba(180,210,255,0.4)");
-    }
-  }
-}
-
-/* -------------------- 玩家 -------------------- */
-function tickPlayer(dt) {
-  const p = Game.player;
-  if (p.iTime > 0) p.iTime -= dt;
-  for (const k in p.cd) if (p.cd[k] > 0) p.cd[k] -= dt;
-  if (p.attackT > 0) p.attackT -= dt;
-
-  // 移动
-  let dx = 0, dy = 0;
-  if (keys["KeyA"] || keys["ArrowLeft"])  dx -= 1;
-  if (keys["KeyD"] || keys["ArrowRight"]) dx += 1;
-  if (keys["KeyW"] || keys["ArrowUp"])    dy -= 1;
-  if (keys["KeyS"] || keys["ArrowDown"])  dy += 1;
-  if (dx || dy) {
-    const len = Math.hypot(dx, dy);
-    dx /= len; dy /= len;
-    p.x += dx * p.speed * dt;
-    p.y += dy * p.speed * dt;
-    p.facing.x = dx; p.facing.y = dy;
-    if (dx > 0.1) p.dir = 1;
-    else if (dx < -0.1) p.dir = -1;
-  }
-  p.x = Math.max(4, Math.min(W - 4 - p.w, p.x));
-  p.y = Math.max(80, Math.min(H - p.h - 4, p.y));
-
-  // 攻击：长矛挥击
-  if (p.cd.atk <= 0 && (consume("KeyJ") || consume("Space") && Game.state === "PLAY")) {
-    p.cd.atk = 0.35;
-    p.attackT = 0.18;
-    const ax = p.x + p.w/2 + (p.dir > 0 ? 4 : -18);
-    const ay = p.y + 2;
-    pushEffect({ kind: "slash", x: ax, y: ay, w: 14, h: 10, t: 0.18, dir: p.dir });
-    // 命中检测
-    for (const e of Game.enemies) {
-      if (rectsOverlap(ax, ay, 14, 10, e.x, e.y, e.w, e.h)) {
-        damageEnemy(e, 22, p.dir);
-      }
-    }
-  }
-
-  // 神经麻痹脉冲（环形 AoE，瘫痪 3s）
-  if (Game.unlocked.neural && p.cd.neural <= 0 && consume("KeyK")) {
-    p.cd.neural = 8;
-    pushEffect({ kind: "neural", x: p.x + p.w/2, y: p.y + p.h/2, t: 0.6, r: 0, maxR: 36 });
-    for (const e of Game.enemies) {
-      const dx = (e.x + e.w/2) - (p.x + p.w/2);
-      const dy = (e.y + e.h/2) - (p.y + p.h/2);
-      if (dx*dx + dy*dy <= 36*36) {
-        damageEnemy(e, 12, dx > 0 ? 1 : -1);
-        e.frozenT = Math.max(e.frozenT, 3);
-      }
-    }
-  }
-
-  // 声波冷冻锥（前向扇形，减速 + 持续伤害）
-  if (Game.unlocked.frost && p.cd.frost <= 0 && consume("KeyL")) {
-    p.cd.frost = 12;
-    const dir = p.dir;
-    pushEffect({ kind: "frost", x: p.x + p.w/2, y: p.y + p.h/2, t: 0.5, dir });
-    for (const e of Game.enemies) {
-      const dx = (e.x + e.w/2) - (p.x + p.w/2);
-      const dy = (e.y + e.h/2) - (p.y + p.h/2);
-      if (Math.sign(dx) === dir && Math.abs(dx) < 56 && Math.abs(dy) < 28 + Math.abs(dx)*0.5) {
-        damageEnemy(e, 28, dir);
-        e.slowT = Math.max(e.slowT, 5);
-      }
-    }
-  }
-
-  // 基因焰爆（大范围爆炸）
-  if (Game.unlocked.fire && p.cd.fire <= 0 && consume("KeyU")) {
-    p.cd.fire = 20;
-    const cx = p.x + p.w/2 + p.dir * 30;
-    const cy = p.y + p.h/2;
-    pushEffect({ kind: "fire", x: cx, y: cy, t: 0.9, r: 0, maxR: 42 });
-    Game.shake = 0.4;
-    for (const e of Game.enemies) {
-      const dx = (e.x + e.w/2) - cx;
-      const dy = (e.y + e.h/2) - cy;
-      if (dx*dx + dy*dy <= 42*42) damageEnemy(e, 80, dx > 0 ? 1 : -1);
-    }
-  }
-}
-
-function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
-  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
-}
-
-function damageEnemy(e, dmg, dir) {
-  e.hp -= dmg;
-  e.hitT = 0.15;
-  e.x += dir * 3;
-  if (e.hp <= 0) {
-    pushEffect({ kind: "dieFlash", x: e.x, y: e.y, w: e.w, h: e.h, t: 0.4, color: e.color });
-    pushEffect({ kind: "crystal", x: e.x + e.w/2 - 2, y: e.y + e.h/2 - 2, t: 0.9, color: e.color });
-  }
-}
-
-function damagePlayer(dmg) {
-  const p = Game.player;
-  if (p.iTime > 0) return;
-  p.hp -= dmg;
-  p.iTime = 0.6;
-  Game.flash = 0.25;
-  Game.shake = 0.18;
-  if (p.hp <= 0) {
-    p.hp = 0;
-    Game.state = "GAMEOVER";
-  }
-}
-
-/* -------------------- 敌人 AI -------------------- */
-function tickEnemies(dt) {
-  const p = Game.player;
-  for (const e of Game.enemies) {
-    if (e.hitT > 0) e.hitT -= dt;
-    if (e.frozenT > 0) { e.frozenT -= dt; continue; }
-    if (e.atkT > 0) e.atkT -= dt;
-
-    const dx = (p.x + p.w/2) - (e.x + e.w/2);
-    const dy = (p.y + p.h/2) - (e.y + e.h/2);
-    const d = Math.hypot(dx, dy) || 1;
-    let speed = e.speed * (e.slowT > 0 ? 0.3 : 1);
-    if (e.slowT > 0) e.slowT -= dt;
-    e.facing = dx > 0 ? 1 : -1;
-    // BOSS 攻击：远程冲撞
-    if (d > 14) {
-      e.x += (dx/d) * speed * dt;
-      e.y += (dy/d) * speed * dt;
-    } else if (e.atkT <= 0) {
-      e.atkT = 1.2;
-      damagePlayer(e.dmg);
-    }
-  }
-  // 移除尸体
-  Game.enemies = Game.enemies.filter(e => e.hp > 0);
-
-  // 关卡完成
-  if (Game.state === "PLAY" && Game.enemies.length === 0 && !Game.exit) {
-    Game.exit = { x: W - 30, y: 96, w: 14, h: 14, t: 0 };
-  }
-
-  // 进入出口
-  if (Game.exit) {
-    Game.exit.t += dt;
-    if (rectsOverlap(p.x, p.y, p.w, p.h, Game.exit.x, Game.exit.y, Game.exit.w, Game.exit.h)) {
-      Game.exit = null;
-      LEVELS[Game.level].onClear();
-    }
-  }
-}
-
-/* -------------------- 特效 -------------------- */
-function tickEffects(dt) {
-  for (const f of Game.effects) {
-    f.t -= dt;
-    if (f.kind === "neural") f.r = f.maxR * (1 - f.t / 0.6);
-    if (f.kind === "fire")   f.r = f.maxR * (1 - f.t / 0.9);
-  }
-  Game.effects = Game.effects.filter(f => f.t > 0);
-}
-
-function drawEffects() {
-  for (const f of Game.effects) {
-    if (f.kind === "slash") {
-      const ox = f.dir > 0 ? f.x : f.x;
-      g.fillStyle = "rgba(255,240,180,0.85)";
-      for (let i = 0; i < 4; i++) {
-        rect(ox + i*2, f.y - 2 + i, f.w - i*4, 1, "rgba(255,240,180,0.85)");
-      }
-      // 矛尖
-      rect(f.x + (f.dir>0?f.w-2:0), f.y + 4, 2, 2, "#fff");
-    }
-    else if (f.kind === "neural") {
-      g.strokeStyle = "rgba(192,96,255,0.8)";
-      g.lineWidth = 1;
-      g.beginPath(); g.arc(f.x, f.y, f.r, 0, Math.PI*2); g.stroke();
-      g.strokeStyle = "rgba(192,96,255,0.4)";
-      g.beginPath(); g.arc(f.x, f.y, f.r * 0.7, 0, Math.PI*2); g.stroke();
-    }
-    else if (f.kind === "frost") {
-      const dir = f.dir;
-      g.fillStyle = "rgba(140,220,255,0.5)";
-      // 扇形锥
-      g.beginPath();
-      g.moveTo(f.x, f.y);
-      g.lineTo(f.x + dir*56, f.y - 28);
-      g.lineTo(f.x + dir*56, f.y + 28);
-      g.closePath(); g.fill();
-      // 冰晶散点
-      for (let i = 0; i < 12; i++) {
-        const px2 = f.x + dir * (10 + i * 4);
-        const py2 = f.y + Math.sin(i + Game.time*8) * (i*2);
-        px(px2, py2, "#e0f4ff");
-      }
-    }
-    else if (f.kind === "fire") {
-      const a = 1 - (1 - f.t / 0.9);
-      g.fillStyle = `rgba(255,90,30,${0.7*a})`;
-      g.beginPath(); g.arc(f.x, f.y, f.r, 0, Math.PI*2); g.fill();
-      g.fillStyle = `rgba(255,200,100,${0.6*a})`;
-      g.beginPath(); g.arc(f.x, f.y, f.r * 0.6, 0, Math.PI*2); g.fill();
-      g.fillStyle = `rgba(255,255,220,${0.7*a})`;
-      g.beginPath(); g.arc(f.x, f.y, f.r * 0.25, 0, Math.PI*2); g.fill();
-    }
-    else if (f.kind === "dieFlash") {
-      const a = f.t / 0.4;
-      g.fillStyle = `rgba(255,255,255,${a*0.7})`;
-      g.fillRect(f.x, f.y, f.w, f.h);
-    }
-    else if (f.kind === "crystal") {
-      const yo = Math.sin(Game.time*8) * 1;
-      g.fillStyle = f.color;
-      g.fillRect(f.x, f.y + yo, 4, 4);
-      g.fillStyle = "#fff";
-      px(f.x+1, f.y + yo, "#fff");
-    }
-  }
-}
-
-/* -------------------- 实体绘制 -------------------- */
-function drawPlayer() {
-  const p = Game.player;
-  const blink = (p.iTime > 0 && Math.floor(p.iTime * 20) % 2 === 0);
-  if (blink) return;
-  // 行走判定
-  const moving = !!(keys["KeyA"]||keys["ArrowLeft"]||keys["KeyD"]||keys["ArrowRight"]
-                  ||keys["KeyW"]||keys["ArrowUp"]||keys["KeyS"]||keys["ArrowDown"]);
-  const bob = moving ? (Math.sin(Game.time * 12) > 0 ? -1 : 0) : 0;
-  // 投影
-  drawShadow((p.x + p.w/2)|0, (p.y + p.h - 1)|0, 12);
-  // 角色（攻击时轻微前倾）
-  const ax = p.attackT > 0 ? p.dir * 1 : 0;
-  drawSprite(SPR_PLAYER, PAL_PLAYER, (p.x + ax)|0, (p.y + bob)|0, p.dir < 0);
-  // 长矛
-  const sx = p.x + ax + (p.dir > 0 ? p.w : -8);
-  const sy = p.y + bob + 5;
-  if (p.attackT > 0) {
-    rect(sx + (p.dir>0?2:0), sy, 12, 1, "#cf8a40");
-    rect(sx + (p.dir>0?2:0), sy+1, 12, 1, "#7a4818");
-    rect(sx + (p.dir>0?13:0), sy, 1, 2, "#fff8d8");
-    px(sx + (p.dir>0?13:0), sy + 2, "#ffd070");
-  } else {
-    rect(sx + (p.dir>0?2:5), sy + 1, 6, 1, "#a06a3a");
-    rect(sx + (p.dir>0?7:4), sy, 1, 2, "#dcdcdc");
-  }
-}
-
-function drawEnemy(e) {
-  const flicker = e.hitT > 0 && Math.floor(e.hitT * 30) % 2 === 0;
-  const flip = e.facing < 0;
-  // 投影
-  drawShadow((e.x + e.w/2)|0, (e.y + e.h - 1)|0, e.w + 2);
-  // 待机轻微浮动
-  const bob = e.frozenT > 0 ? 0 : (Math.sin(Game.time * 4 + e.x*0.1) > 0 ? -1 : 0);
-  if (e.type === "tx03")      drawSprite(SPR_TX03, PAL_TX03, e.x|0, (e.y + bob)|0, flip);
-  else if (e.type === "tx07") drawSprite(SPR_TX07, PAL_TX07, e.x|0, (e.y + bob)|0, flip);
-  else if (e.type === "boss") drawSprite(SPR_BOSS, PAL_BOSS, e.x|0, (e.y + bob)|0, flip);
-  if (flicker) {
-    g.globalCompositeOperation = "lighter";
-    g.fillStyle = "rgba(255,255,255,0.6)";
-    g.fillRect(e.x, e.y + bob, e.w, e.h);
-    g.globalCompositeOperation = "source-over";
-  }
-  if (e.frozenT > 0) {
-    g.fillStyle = "rgba(160,220,255,0.45)";
-    g.fillRect(e.x - 1, e.y - 1, e.w + 2, e.h + 2);
-    // 冰晶角
-    px(e.x - 1, e.y - 1, "#e0f4ff"); px(e.x + e.w, e.y - 1, "#e0f4ff");
-    px(e.x - 1, e.y + e.h, "#e0f4ff"); px(e.x + e.w, e.y + e.h, "#e0f4ff");
-  }
-  // 血条（带描边）
-  const hpW = e.w;
-  rect(e.x - 1, e.y - 5, hpW + 2, 3, "rgba(0,0,0,0.65)");
-  rect(e.x, e.y - 4, hpW, 1, "#3a0a0a");
-  rect(e.x, e.y - 4, (hpW * e.hp / e.maxHp)|0, 1, "#ff5050");
-  // BOSS 名字
-  if (e.isBoss) {
-    drawText("TX-Alpha", e.x - 4, e.y - 16, "#ff8080");
-  }
-}
-
-function drawExit() {
-  if (!Game.exit) return;
-  const t = Game.exit.t;
-  const cx = Game.exit.x + Game.exit.w/2;
-  const cy = Game.exit.y + Game.exit.h/2;
-  // 外发光环
-  for (let i = 0; i < 3; i++) {
-    const r = 10 + i*3 + Math.sin(t*4 - i)*1.5;
-    g.strokeStyle = `rgba(255,200,80,${0.45 - i*0.12})`;
-    g.lineWidth = 1;
-    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI*2); g.stroke();
-  }
-  const pulse = 0.6 + 0.4 * Math.sin(t * 6);
-  rect(Game.exit.x, Game.exit.y, Game.exit.w, Game.exit.h, `rgba(255,200,80,${pulse*0.4})`);
-  rect(Game.exit.x + 2, Game.exit.y + 2, Game.exit.w - 4, Game.exit.h - 4, "#ffd078");
-  rect(Game.exit.x + 4, Game.exit.y + 4, Game.exit.w - 8, Game.exit.h - 8, "#ffffaa");
-  // 旋转粒子
-  for (let i = 0; i < 6; i++) {
-    const a = t*3 + i * (Math.PI*2/6);
-    px((cx + Math.cos(a)*9)|0, (cy + Math.sin(a)*9)|0, "#fff");
-  }
-  drawText("→", Game.exit.x + 4, Game.exit.y + 2, "#5a3010");
-  drawText("前进", Game.exit.x - 4, Game.exit.y - 12, "#ffd078");
-}
-
-/* -------------------- HUD -------------------- */
-function drawHUD() {
-  const p = Game.player;
-  // 顶部章节横幅
-  panel(4, 2, 110, 12, "rgba(8,6,12,0.72)", "rgba(207,138,64,0.6)");
-  drawText(LEVELS[Game.level].name, 8, 4, "#ffe0a8");
-  // 左下 HP 面板
-  panel(4, H - 28, 96, 24, "rgba(8,6,12,0.78)", "rgba(207,138,64,0.6)");
-  // 心形图标
-  const hx = 9, hy = H - 25;
-  px(hx,   hy,   "#ff6464"); px(hx+2, hy,   "#ff6464");
-  px(hx-1, hy+1, "#ff8080"); px(hx,   hy+1, "#ff4040"); px(hx+1, hy+1, "#ff4040");
-  px(hx+2, hy+1, "#ff4040"); px(hx+3, hy+1, "#ff8080");
-  px(hx,   hy+2, "#ff4040"); px(hx+1, hy+2, "#ff4040"); px(hx+2, hy+2, "#ff4040");
-  px(hx+1, hy+3, "#ff4040");
-  drawText("HP", hx + 8, H - 25, "#ffd28a");
-  // 分段 HP 槽
-  rect(8,  H - 16, 86, 8, "#1a0606");
-  rect(9,  H - 15, 84, 6, "#3a0a0a");
-  const hpW = ((84 * p.hp / p.maxHp) | 0);
-  const ratio = p.hp / p.maxHp;
-  const hpColor = ratio > 0.5 ? "#52d860" : (ratio > 0.25 ? "#e8c040" : "#e04040");
-  rect(9, H - 15, hpW, 6, hpColor);
-  rect(9, H - 15, hpW, 1, "rgba(255,255,255,0.35)");
-  // 数值
-  drawText(`${p.hp|0}/${p.maxHp}`, 38, H - 25, "#ffd28a");
-
-  // 右下技能面板
-  const skills = [
-    { key: "J", name: "长矛", cd: p.cd.atk,    max: 0.35, ok: true,                color: "#e8d8a0", icon: "spear" },
-    { key: "K", name: "脉冲", cd: p.cd.neural, max: 8,    ok: Game.unlocked.neural, color: "#c060ff", icon: "wave"  },
-    { key: "L", name: "冷锥", cd: p.cd.frost,  max: 12,   ok: Game.unlocked.frost,  color: "#5fc0ff", icon: "frost" },
-    { key: "U", name: "焰爆", cd: p.cd.fire,   max: 20,   ok: Game.unlocked.fire,   color: "#ff7a30", icon: "fire"  },
-  ];
-  const slot = 22, gap = 3;
-  const totalW = skills.length * slot + (skills.length - 1) * gap;
-  const startX = W - 4 - totalW;
-  panel(startX - 4, H - 28, totalW + 8, 24, "rgba(8,6,12,0.78)", "rgba(207,138,64,0.6)");
-  for (let i = 0; i < skills.length; i++) {
-    const s = skills[i];
-    const x = startX + i * (slot + gap);
-    const y = H - 25;
-    const h = 18;
-    rect(x, y, slot, h, s.ok ? "rgba(20,15,10,0.85)" : "rgba(10,8,8,0.85)");
-    rect(x, y, slot, 1, s.ok ? s.color : "#444");
-    rect(x, y + h - 1, slot, 1, s.ok ? "rgba(0,0,0,0.5)" : "#222");
-    // 图标（居中）
-    const cxi = x + slot/2, cyi = y + 7;
-    if (!s.ok) {
-      drawText("?", cxi - 2, cyi - 3, "#666");
-    } else if (s.icon === "spear") {
-      rect(cxi - 4, cyi, 8, 1, "#a06a3a");
-      px(cxi + 4, cyi,     "#ffffff");
-      px(cxi + 4, cyi - 1, "#dcdcdc");
-    } else if (s.icon === "wave") {
-      g.strokeStyle = s.color; g.lineWidth = 1;
-      g.beginPath(); g.arc(cxi, cyi, 4, 0, Math.PI*2); g.stroke();
-      px(cxi, cyi, s.color);
-    } else if (s.icon === "frost") {
-      px(cxi, cyi - 3, s.color); px(cxi, cyi + 3, s.color);
-      px(cxi - 3, cyi, s.color); px(cxi + 3, cyi, s.color);
-      px(cxi - 2, cyi - 2, s.color); px(cxi + 2, cyi + 2, s.color);
-      px(cxi - 2, cyi + 2, s.color); px(cxi + 2, cyi - 2, s.color);
-      px(cxi, cyi, "#fff");
-    } else if (s.icon === "fire") {
-      rect(cxi - 2, cyi - 1, 4, 4, s.color);
-      px(cxi - 1, cyi - 3, s.color); px(cxi, cyi - 2, "#ffd070"); px(cxi + 1, cyi - 3, s.color);
-      px(cxi, cyi, "#ffffaa");
-    }
-    // 按键
-    drawText(s.key, x + 1, y + 11, s.ok ? s.color : "#666");
-    // 冷却遮罩 + 倒计时
-    if (s.ok && s.cd > 0) {
-      const r = s.cd / s.max;
-      rect(x, y + h - r * h, slot, r * h, "rgba(0,0,0,0.6)");
-      if (s.max > 1) drawText(s.cd.toFixed(1), x + 4, y + 5, "rgba(255,255,255,0.85)");
-    }
-  }
-}
-
-/* -------------------- 标题 / 结局 -------------------- */
-function drawTitle() {
-  // 深空渐变
-  for (let y = 0; y < H; y++) {
-    const k = y / H;
-    const r = 8 + k * 18, gn = 6 + k * 14, b = 18 + k * 30;
-    rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
-  }
-  // 闪烁星
-  for (let i = 0; i < 90; i++) {
-    const sx = (i * 71) % W, sy = (i * 53) % H;
-    const a = 0.4 + 0.6 * Math.abs(Math.sin(Game.time * 1.5 + i));
-    const c = i % 7 === 0 ? `rgba(255,210,138,${a})` : `rgba(220,220,235,${a*0.8})`;
-    px(sx, sy, c);
-  }
-  // 流星
-  const m = (Game.time * 80) % (W + 40);
-  for (let i = 0; i < 8; i++) {
-    px((m - i)|0, (40 + i)|0, `rgba(255,240,200,${1 - i*0.12})`);
-  }
-  // 大土星 + 光晕
-  g.fillStyle = "rgba(230,180,120,0.18)";
-  g.beginPath(); g.arc(W - 65, 45, 50, 0, Math.PI*2); g.fill();
-  rect(W - 100, 30, 70, 35, "#cba070");
-  rect(W - 95,  38, 60, 22, "#b08060");
-  rect(W - 92,  32, 30, 1, "rgba(255,232,200,0.6)");
-  g.strokeStyle = "rgba(220,180,120,0.85)";
-  g.lineWidth = 1;
-  g.beginPath(); g.ellipse(W - 65, 50, 50, 7, -0.15, 0, Math.PI*2); g.stroke();
-  g.strokeStyle = "rgba(255,232,200,0.45)";
-  g.beginPath(); g.ellipse(W - 65, 50, 42, 5, -0.15, 0, Math.PI*2); g.stroke();
-
-  // 地平线剪影
-  g.fillStyle = "rgba(20,12,28,0.95)";
-  g.beginPath(); g.moveTo(0, 158);
-  for (let x = 0; x <= W; x += 8) g.lineTo(x, 158 - Math.sin(x*0.04)*6 - ((x*7)%9)*0.5);
-  g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
-  // 远景半球
-  drawDome(20, 130, 50, 18);
-  drawDome(100, 138, 30, 12);
-  drawDome(245, 134, 40, 16);
-
-  // 标题（带阴影）
-  const titleY = 50;
-  drawCenterText("泰  坦  遗  种", titleY+2, "rgba(0,0,0,0.7)", 24);
-  drawCenterText("泰  坦  遗  种", titleY,   "#f0d090", 24);
-  drawCenterText("TITAN HEIR", titleY+33, "#a08060", 10);
-  rect(W/2 - 50, titleY+48, 100, 1, "rgba(207,138,64,0.6)");
-  drawCenterText("一  个  像  素  风  求  生  剧", titleY+53, "#a89868", 11);
-
-  // 闪烁开始提示
-  if ((Game.time * 1.5) % 2 < 1)
-    drawCenterText("[ 按 空格 / 回车 开始 ]", 130, "#ffd28a", 11);
-  drawCenterText("改编自《泰坦遗种 · 短篇》", 175, "#5a5040", 9);
-
-  if (consume("Space") || consume("Enter")) {
-    Game.level = 0;
-    Game.player = makePlayer();
-    Game.unlocked = { neural: false, frost: false, fire: false };
-    LEVELS[0].setup();
-    Game.dialogue = mkDialogue(LEVELS[0].intro, () => { Game.state = "PLAY"; });
-    Game.state = "DIALOGUE";
-  }
-}
-
-function nextLevel() {
-  Game.level++;
-  if (Game.level >= LEVELS.length) {
-    // 已在最终关 onClear 中处理 CHOICE
-    return;
-  }
-  // 满血进入下一关
-  Game.player.hp = Math.min(Game.player.maxHp, Game.player.hp + 50);
-  LEVELS[Game.level].setup();
-  Game.dialogue = mkDialogue(LEVELS[Game.level].intro, () => { Game.state = "PLAY"; });
-  Game.state = "DIALOGUE";
-}
-
-/* -------------------- 选择 / 结局 -------------------- */
-let choiceIdx = 0;
-function tickChoice() {
-  if (consume("ArrowUp") || consume("KeyW") || consume("ArrowLeft") || consume("KeyA")) choiceIdx = (choiceIdx + 1) % 2;
-  if (consume("ArrowDown") || consume("KeyS") || consume("ArrowRight") || consume("KeyD")) choiceIdx = (choiceIdx + 1) % 2;
-  if (consume("Space") || consume("Enter")) {
-    if (choiceIdx === 0) {
-      Game.ending = "DISTRESS";
-      Game.dialogue = mkDialogue([
-        ["李墨", "（按下'紧急通讯'，而不是'摇篮激活'）"],
-        ["系统", "紧急求救信号已发出。坐标：泰坦，赫尔墨斯盆地东部。"],
-        ["李墨", "对不起。你们值得一个比克朗更好的开始。"],
-        ["李墨", "我没有资格替三千个生命做这个选择。"],
-        ["——", "五天后，联合行星法庭的救援飞船降落在半球建筑之外。"],
-        ["救援队长", "李墨先生，您已经是英雄了。"],
-        ["李墨", "我不是英雄。我只是想回家。"],
-      ], () => { Game.state = "ENDING"; });
-    } else {
-      Game.ending = "RELEASE";
-      Game.dialogue = mkDialogue([
-        ["李墨", "（按下'摇篮激活'）……潘多拉的盒子，由我亲手打开。"],
-        ["系统", "三千名志愿者胚胎已唤醒。"],
-        ["??", "新人类将不再被地球禁锢。我们将——"],
-        ["李墨", "住口！"],
-        ["——", "TX 系列基因结晶在他血脉中翻涌。新世界的种子，自此生根。"],
-        ["——", "这是另一个故事的开端，但不再属于一个'想要回家的工程师'。"],
-      ], () => { Game.state = "ENDING"; });
-    }
-    Game.state = "DIALOGUE";
-  }
-}
-function drawChoice() {
-  // 深色渐变背景
-  for (let y = 0; y < H; y++) {
-    const k = y / H;
-    rect(0, y, W, 1, `rgb(${10+k*8|0},${10+k*8|0},${20+k*16|0})`);
-  }
-  // 红警示带
-  const warn = (Game.time * 2) % 2 < 1;
-  rect(0, 0,   W, 4, warn ? "#a01818" : "#400808");
-  rect(0, H-4, W, 4, warn ? "#a01818" : "#400808");
-  // 控制台面板
-  panel(70, 46, 180, 110, "rgba(20,18,30,0.92)", "rgba(207,106,26,0.85)");
-  rect(70, 60,  180, 1, "rgba(207,106,26,0.6)");
-  rect(70, 144, 180, 1, "rgba(207,106,26,0.6)");
-  drawCenterText("忒 修 斯 主 控 核 心", 50, "#ffd28a", 14);
-  drawCenterText("是否唤醒三千名沉睡的胚胎？", 70, "#ece4d0", 11);
-
-  const opts = ["不释放，发出紧急求救（守住底线）",
-                "释放胚胎，开启新人类纪元（潘多拉）"];
-  for (let i = 0; i < 2; i++) {
-    const y = 95 + i * 24;
-    if (i === choiceIdx) {
-      rect(80, y - 3, 160, 18, "rgba(207,106,26,0.3)");
-      rect(80, y - 3, 160, 1, "#cf6a1a");
-      rect(80, y + 14, 160, 1, "#cf6a1a");
-      drawText("▸ " + opts[i], 88, y, "#ffd28a");
-    } else {
-      drawText("  " + opts[i], 88, y, "#888272");
-    }
-  }
-  drawCenterText("[ ↑↓ 选择 · 空格 确认 ]", 162, "#aaa288", 9);
-}
-function drawEnding() {
-  // 渐变背景
-  for (let y = 0; y < H; y++) {
-    const k = y / H;
-    rect(0, y, W, 1, `rgb(${6+k*8|0},${6+k*6|0},${12+k*12|0})`);
-  }
-  for (let i = 0; i < 100; i++) {
-    const sx = (i * 71 + Game.time * 3) % W;
-    const sy = (i * 53) % H;
-    const a = 0.3 + 0.7 * Math.abs(Math.sin(Game.time*2 + i));
-    px(sx|0, sy, i % 5 === 0 ? `rgba(255,210,138,${a})` : `rgba(180,180,210,${a*0.7})`);
-  }
-  if (Game.ending === "DISTRESS") {
-    drawCenterText("结  局  ·  守  望", 30, "#f0d090", 16);
-    rect(W/2 - 60, 56, 120, 1, "rgba(207,138,64,0.6)");
-    drawCenterText("第三件事，他还没想好。", 68, "#ece4d0", 11);
-    drawCenterText("但他知道，无论是什么，他都不再害怕了。", 88, "#ece4d0", 11);
-    drawCenterText("因为他已经在泰坦的荒野上，", 115, "#aaa288", 10);
-    drawCenterText("从一个普通的工程师，", 130, "#aaa288", 10);
-    drawCenterText("走成了一个见过深渊、却没有被深渊吞噬的人。", 145, "#aaa288", 10);
-  } else {
-    drawCenterText("结  局  ·  种  火", 30, "#ffaa70", 16);
-    rect(W/2 - 60, 56, 120, 1, "rgba(255,120,50,0.6)");
-    drawCenterText("克朗的疯狂梦想成为现实。", 68, "#ece4d0", 11);
-    drawCenterText("三千名新人类睁开了眼睛，", 88, "#ece4d0", 11);
-    drawCenterText("而李墨，成了他们的'继承者'。", 110, "#ece4d0", 11);
-    drawCenterText("这是另一个故事的开端。", 140, "#aaa288", 10);
-  }
-  drawCenterText("—— 全 文 完 ——", 175, "#cf6a1a", 11);
-  if ((Game.time * 1.5) % 2 < 1)
-    drawCenterText("[ 空格 返回标题 ]", 190, "#888272", 9);
-  if (consume("Space") || consume("Enter")) {
-    Game.state = "TITLE";
-  }
-}
-function drawGameOver() {
-  rect(0, 0, W, H, "rgba(0,0,0,0.85)");
-  // 红色光晕
-  for (let i = 0; i < 30; i++) {
-    rect(0, 60 + i, W, 1, `rgba(80,${(20-i*0.5)|0},${(20-i*0.5)|0},0.4)`);
-  }
-  drawCenterText("你 倒 在 了 泰 坦 的 荒 野", 70, "#e04040", 16);
-  rect(W/2 - 70, 96, 140, 1, "rgba(224,64,64,0.6)");
-  drawCenterText("呼吸器电量耗尽……", 102, "#aaa288", 11);
-  drawCenterText("[ 空格 重新挑战本章 ]", 140, "#ffd28a", 11);
-  if (consume("Space") || consume("Enter")) {
-    Game.player.hp = Game.player.maxHp;
-    LEVELS[Game.level].setup();
-    Game.state = "PLAY";
-  }
-}
-
-/* -------------------- 主循环 -------------------- */
-let last = performance.now();
-function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
-  last = now;
-  Game.time += dt;
-  if (Game.flash > 0) Game.flash -= dt;
-  if (Game.shake > 0) Game.shake -= dt;
-
-  // ---- 更新 ----
-  if (Game.state === "TITLE") { /* 在 drawTitle 中处理输入 */ }
-  else if (Game.state === "DIALOGUE") tickDialogue(dt);
-  else if (Game.state === "PLAY") {
-    tickPlayer(dt);
-    tickEnemies(dt);
-    tickEffects(dt);
-  }
-  else if (Game.state === "CHOICE") tickChoice();
-  else if (Game.state === "ENDING") { /* drawEnding 中处理 */ }
-  else if (Game.state === "GAMEOVER") { /* drawGameOver 中处理 */ }
-
-  // ---- 渲染 ----
-  // 屏幕震动偏移
-  let shx = 0, shy = 0;
-  if (Game.shake > 0) {
-    shx = (Math.random() - 0.5) * Game.shake * 8;
-    shy = (Math.random() - 0.5) * Game.shake * 8;
-  }
-  g.save();
-  g.translate(shx, shy);
-
-  if (Game.state === "TITLE") {
-    drawTitle();
-  } else if (Game.state === "CHOICE") {
-    drawChoice();
-  } else if (Game.state === "ENDING") {
-    drawEnding();
-  } else {
-    drawBackground();
-    // 排序：按 y 排序保证遮挡正确
-    const drawables = [];
-    drawables.push({ y: Game.player.y + Game.player.h, draw: drawPlayer });
-    for (const e of Game.enemies) drawables.push({ y: e.y + e.h, draw: () => drawEnemy(e) });
-    if (Game.exit) drawables.push({ y: Game.exit.y + Game.exit.h, draw: drawExit });
-    drawables.sort((a, b) => a.y - b.y);
-    for (const d of drawables) d.draw();
-    drawEffects();
-    drawVignette();
-    drawHUD();
-    if (Game.state === "DIALOGUE") drawDialogue();
-    if (Game.state === "GAMEOVER") drawGameOver();
-  }
-
-  // 全屏红闪
-  if (Game.flash > 0) {
-    g.fillStyle = `rgba(255,40,40,${Game.flash})`;
-    g.fillRect(0, 0, W, H);
-  }
-  g.restore();
-
-  // 放大到主画布
-  ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, VW, VH);
-  ctx.drawImage(off, 0, 0, W, H, 0, 0, VW, VH);
-
-  // 扫描线（轻微 CRT）
-  ctx.fillStyle = "rgba(0,0,0,0.07)";
-  for (let y = 0; y < VH; y += 3) ctx.fillRect(0, y, VW, 1);
-
-  // 一帧结束时清掉 pressed（pressed 为单帧事件，但 consume 已处理）
-  // —— 这里仅清理本帧未消耗的：保留以便其他状态使用。我们在状态切换帧也清空，避免误读。
-  for (const k in pressed) pressed[k] = false;
-
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
 </script>
 </body>
 </html>
