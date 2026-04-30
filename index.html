@@ -231,7 +231,9 @@ function consume(code) { if (pressed[code]) { pressed[code] = false; return true
 
 /* -------------------- 触屏输入（手机竖屏） -------------------- */
 (function setupTouchInput() {
-  const isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
+  const isTouch = (("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0)
+                  && (typeof matchMedia !== "function"
+                      || matchMedia("(hover: none) and (pointer: coarse)").matches);
   if (!isTouch) return;
   document.body.classList.add("touch");
 
