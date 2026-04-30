@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>泰坦遗种 · 像素求生</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #07080d;
+    color: #d8d4c2;
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    height: 100%;
+    overflow: hidden;
+    user-select: none;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  #game {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    background: #000;
+    box-shadow: 0 0 32px rgba(255, 140, 30, 0.18), 0 0 0 2px #2a2118;
+    cursor: crosshair;
+  }
+  .hint {
+    margin-top: 14px;
+    font-size: 13px;
+    color: #8a8270;
+    letter-spacing: 1px;
+  }
+  .hint b { color: #d8b070; font-weight: normal; }
+  h1.title {
+    font-size: 14px;
+    color: #6a6452;
+    letter-spacing: 4px;
+    margin: 0 0 12px;
+  }
+</style>
+</head>
+<body>
+<h1 class="title">— 泰坦遗种 · TITAN HEIR —</h1>
+<canvas id="game" width="960" height="600"></canvas>
+<div class="hint">
+  移动 <b>WASD / 方向键</b> &nbsp;·&nbsp; 长矛攻击 <b>J</b> &nbsp;·&nbsp;
+  神经脉冲 <b>K</b> &nbsp;·&nbsp; 冷冻锥 <b>L</b> &nbsp;·&nbsp; 焰爆 <b>U</b>
+  &nbsp;·&nbsp; 确认 <b>空格 / 回车</b>
+</div>
+
+<script>
+"use strict";
+/* =========================================================================
+   《泰坦遗种》像素求生 —— 单文件浏览器游戏
+   改编自仓库内短篇小说 泰坦遗种_短篇.md
+   渲染采用 320x200 像素分辨率，3 倍放大；所有像素美术程序化绘制。
+   ========================================================================= */
+
+const cvs = document.getElementById("game");
+const ctx = cvs.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+const W = 320, H = 200, SCALE = 3;       // 逻辑分辨率
+const VW = cvs.width, VH = cvs.height;
+
+// 离屏画布——所有绘制先画到 320x200，再放大到屏幕
+const off = document.createElement("canvas");
+off.width = W; off.height = H;
+const g = off.getContext("2d");
+g.imageSmoothingEnabled = false;
+
+/* -------------------- 输入 -------------------- */
+const keys = {};
+const pressed = {};   // 一次性按下事件
+addEventListener("keydown", e => {
+  if (!keys[e.code]) pressed[e.code] = true;
+  keys[e.code] = true;
+  // 阻止方向键/空格滚动
+  if (["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
+});
+addEventListener("keyup", e => { keys[e.code] = false; });
+function consume(code) { if (pressed[code]) { pressed[code] = false; return true; } return false; }
+
+/* -------------------- 像素绘图工具 -------------------- */
+// 把字符矩阵当作精灵：每个字符对应调色板里的一种颜色，'.' 视为透明
+function drawSprite(sprite, palette, x, y, flipX) {
+  for (let row = 0; row < sprite.length; row++) {
+    const line = sprite[row];
+    for (let col = 0; col < line.length; col++) {
+      const ch = line[col];
+      if (ch === "." || ch === " ") continue;
+      const c = palette[ch];
+      if (!c) continue;
+      const px = flipX ? (x + (line.length - 1 - col)) : (x + col);
+      g.fillStyle = c;
+      g.fillRect(px, y + row, 1, 1);
+    }
+  }
+}
+function rect(x, y, w, h, c) { g.fillStyle = c; g.fillRect(x|0, y|0, w|0, h|0); }
+function px(x, y, c) { g.fillStyle = c; g.fillRect(x|0, y|0, 1, 1); }
+
+/* -------------------- 精灵定义 -------------------- */
+// 主角 李墨：橙色救援服 + 蓝色面罩
+const SPR_PLAYER = [
+  "...hhhh...",
+  "..hhhhhh..",
+  "..hvvvvh..",
+  "..hvvvvh..",
+  "...nnnn...",
+  ".oo gg oo.",
+  "ooo gg ooo",
+  "ooobbbbooo",
+  "ooobbbbooo",
+  ".oobbbboo.",
+  "..o b b o.",
+  "..o    o..",
+  "...kkkk...",
+  "..kk..kk..",
+];
+const PAL_PLAYER = { h:"#1a1410", v:"#2d6e9c", n:"#c8a070", o:"#cf6a1a", b:"#7a3a14", g:"#6dc6ff", k:"#3a2a14" };
+
+// TX-03：紫水晶感应器 + 银鳞猞猁，14x10（俯视）
+const SPR_TX03 = [
+  "....pppp....pp",
+  "...psssss..ppp",
+  "..ppsPPPsspppp",
+  "..pssPPPsspspp",
+  "..pssssssssspp",
+  "..lpsssssssssp",
+  "..llpsssssspll",
+  "...lllpppplll.",
+  "....l...l..ll.",
+  "....l...l...l.",
+];
+const PAL_TX03 = { p:"#3b2240", s:"#9a82a8", P:"#d56cff", l:"#1c1422" };
+
+// TX-07：蓝鳍声波猎豹（更长），16x12
+const SPR_TX07 = [
+  ".......ffff.....",
+  "......fFFFf.....",
+  ".....fFFFFff....",
+  "....bbssssbbbb..",
+  "...bsssssssbbB..",
+  "...bsCsssssbBB..",
+  "...bssssssssbB..",
+  "..llbbssssbblL..",
+  "..ll..ll..ll.l..",
+  "..l...l...l..l..",
+  "..l...l...l..l..",
+  ".................",
+];
+const PAL_TX07 = { b:"#13345a", s:"#5b8fc4", f:"#a8d8ff", F:"#5fc0ff", C:"#ffffff", l:"#0c1a2a", L:"#0c1a2a", B:"#0c1a2a" };
+
+// TX-Alpha：BOSS，红黑巨蟒型，24x16
+const SPR_BOSS = [
+  ".......RRRRRRRRRR.......",
+  "......RRRRRRRRRRRR......",
+  ".....RRkRRRRRRRRkRR.....",
+  "....RRkkRRRRRRRRkkRR....",
+  "....RRRkRRRRRRRRkRRR....",
+  "...RRRRRRRRRRRRRRRRRR...",
+  "...RRrrRRRRRRRRRRrrRR...",
+  "..RRRrrrRRRRRRRRrrrRRR..",
+  "..RRRRRRRRRRRRRRRRRRRR..",
+  "..kRRRRRRRRRRRRRRRRRRk..",
+  "..kkRRRRRRRRRRRRRRRRkk..",
+  "...kkRRRRRRRRRRRRRRkk...",
+  "....kkRRRRRRRRRRRRkk....",
+  ".....kkRRRRRRRRRRkk.....",
+  "......kkkRRRRRRkkk......",
+  ".........kkkkkk.........",
+];
+const PAL_BOSS = { R:"#a01818", r:"#ff4848", k:"#1a0a0a" };
+
+// 紫色发光森林树（俯视，斑块）
+function drawTree(x, y) {
+  rect(x+2, y+2, 8, 8, "#22102a");
+  rect(x+3, y+3, 6, 6, "#3a1a4a");
+  rect(x+4, y+4, 4, 4, "#5a2a7a");
+  px(x+5, y+5, "#c060ff"); px(x+6, y+6, "#c060ff");
+  px(x+4, y+6, "#80a0ff"); px(x+7, y+5, "#80a0ff");
+}
+
+// 岩石
+function drawRock(x, y) {
+  rect(x, y+2, 10, 6, "#3a2a1a");
+  rect(x+1, y+1, 8, 6, "#5a4838");
+  rect(x+2, y, 5, 4, "#7a6850");
+  px(x+3, y+1, "#a89878");
+}
+
+// 逃生舱（关卡 1 装饰）
+function drawPod(x, y) {
+  rect(x, y+6, 28, 12, "#2a2a30");
+  rect(x+2, y+4, 24, 12, "#4a4a55");
+  rect(x+4, y+6, 20, 8, "#6a6a78");
+  rect(x+8, y+8, 12, 4, "#90c8e0");   // 舷窗
+  rect(x+9, y+9, 10, 2, "#c0e8ff");
+  // 裂缝
+  for (let i = 0; i < 5; i++) px(x+12+i, y+10+(i&1), "#3068a0");
+  // 阴影
+  rect(x-2, y+18, 32, 2, "rgba(0,0,0,0.4)");
+}
+
+// 半球形建筑（远景）
+function drawDome(x, y, w, h) {
+  // 主体
+  for (let i = 0; i < h; i++) {
+    const t = i / h;
+    const ww = w * Math.sqrt(1 - t*t);
+    const cx = x + w/2;
+    rect(cx - ww, y + h - i, ww*2, 1, i < 3 ? "#5a5048" : (i < 8 ? "#403830" : "#2a2520"));
+  }
+  // Ω 标志
+  g.fillStyle = "#a87030";
+  g.fillRect(x + w/2 - 4, y + h - 6, 1, 4);
+  g.fillRect(x + w/2 + 3, y + h - 6, 1, 4);
+  g.fillRect(x + w/2 - 3, y + h - 6, 6, 1);
+  g.fillRect(x + w/2 - 5, y + h - 2, 3, 1);
+  g.fillRect(x + w/2 + 2, y + h - 2, 3, 1);
+}
+
+/* -------------------- 游戏对象 -------------------- */
+const Game = {
+  state: "TITLE",        // TITLE | DIALOGUE | PLAY | CHOICE | ENDING | GAMEOVER
+  level: 0,
+  time: 0,
+  flash: 0,              // 受击屏幕红闪
+  shake: 0,
+  player: null,
+  enemies: [],
+  effects: [],           // 技能特效 / 攻击特效
+  exit: null,            // 关卡过关传送门
+  bg: "sand",
+  dialogue: { lines: [], i: 0, after: null, charT: 0 },
+  ending: null,
+  unlocked: { neural: false, frost: false, fire: false },
+};
+
+function makePlayer() {
+  return {
+    x: 60, y: 100, w: 10, h: 14,
+    hp: 100, maxHp: 100,
+    dir: 1,             // -1 左，+1 右
+    facing: { x: 1, y: 0 },
+    speed: 70,
+    attackT: 0,         // 攻击动画计时
+    iTime: 0,           // 受击无敌
+    cd: { atk: 0, neural: 0, frost: 0, fire: 0 },
+  };
+}
+
+function spawnEnemy(type, x, y) {
+  const base = {
+    type, x, y, hp: 20, maxHp: 20,
+    w: 14, h: 10, speed: 50, dmg: 12,
+    hitT: 0, atkT: 0, frozenT: 0, slowT: 0,
+    facing: -1,
+  };
+  if (type === "tx03") Object.assign(base, { hp: 30, maxHp: 30, w: 14, h: 10, speed: 55, dmg: 14, color: "#c060ff" });
+  if (type === "tx07") Object.assign(base, { hp: 55, maxHp: 55, w: 16, h: 12, speed: 65, dmg: 20, color: "#5fc0ff" });
+  if (type === "boss") Object.assign(base, { hp: 220, maxHp: 220, w: 24, h: 16, speed: 45, dmg: 28, color: "#ff4848", isBoss: true });
+  return base;
+}
+
+function pushEffect(e) { Game.effects.push(e); }
+
+/* -------------------- 关卡 -------------------- */
+const LEVELS = [
+  // 第一章 坠落
+  {
+    name: "第一章 · 坠落",
+    bg: "sand",
+    intro: [
+      ["系统", "李墨，男，29 岁，工程师。"],
+      ["系统", "奥德赛号客运飞船在跃迁出口附近遭遇引力扰动……"],
+      ["系统", "你被弹射至泰坦——土星最大的卫星。"],
+      ["腕表", "警告：检测到异常生物信号。建议：立刻寻找掩体。"],
+      ["李墨", "（举起金属支架）……不能死在这里。"],
+    ],
+    setup() {
+      Game.bg = "sand";
+      Game.player = makePlayer();
+      Game.player.x = 50; Game.player.y = 110;
+      Game.enemies = [ spawnEnemy("tx03", 240, 100) ];
+      Game.exit = null;
+    },
+    onClear() {
+      Game.unlocked.neural = true;
+      Game.dialogue = mkDialogue([
+        ["腕表", "检测到基因结晶体（Gene Crystal）。"],
+        ["腕表", "宿主体内检测到第三代纳米共生体。"],
+        ["腕表", "技能激活：神经麻痹脉冲（K 键）。"],
+        ["李墨", "原来'普罗米修斯'计划埋下的，是这种东西……"],
+      ], () => nextLevel());
+      Game.state = "DIALOGUE";
+    },
+  },
+  // 第二章 森林
+  {
+    name: "第二章 · 森林",
+    bg: "forest",
+    intro: [
+      ["腕表", "环境分析：定向基因改造植被。"],
+      ["腕表", "警告：部分 T-序列植物含神经毒素。"],
+      ["李墨", "为什么泰坦上有可以呼吸的氧气？为什么有外星生物？"],
+      ["李墨", "……我必须穿过这片森林。"],
+    ],
+    setup() {
+      Game.bg = "forest";
+      Game.player.x = 30; Game.player.y = 100;
+      Game.enemies = [
+        spawnEnemy("tx03", 200, 60),
+        spawnEnemy("tx03", 240, 140),
+        spawnEnemy("tx03", 280, 100),
+      ];
+    },
+    onClear() {
+      Game.dialogue = mkDialogue([
+        ["腕表", "检测到附近无线信号。信源类型：私有协议。"],
+        ["腕表", "……奥米伽科技内部协议，代号：忒修斯。"],
+        ["李墨", "奥米伽……安德烈·克朗的方舟计划。"],
+        ["李墨", "我正坐在一座尚未冷却的坟墓上。"],
+      ], () => nextLevel());
+      Game.state = "DIALOGUE";
+    },
+  },
+  // 第三章 忒修斯之环
+  {
+    name: "第三章 · 忒修斯之环",
+    bg: "rocks",
+    intro: [
+      ["李墨", "三只 TX-07……不能正面冲突。"],
+      ["腕表", "攻击模式：声波震荡。建议保持距离。"],
+      ["李墨", "（深呼吸）来吧。"],
+    ],
+    setup() {
+      Game.bg = "rocks";
+      Game.player.x = 30; Game.player.y = 100;
+      Game.enemies = [
+        spawnEnemy("tx07", 220, 70),
+        spawnEnemy("tx07", 260, 130),
+        spawnEnemy("tx07", 290, 90),
+      ];
+    },
+    onClear() {
+      Game.unlocked.frost = true;
+      Game.dialogue = mkDialogue([
+        ["腕表", "吸收基因结晶体——TX-07。"],
+        ["腕表", "技能激活：声波冷冻锥（L 键）。"],
+        ["李墨", "（梦中）……第七代 TX 系列已稳定。它们将是新人类的牧人……"],
+        ["李墨", "那是克朗的声音。他没有死。"],
+      ], () => nextLevel());
+      Game.state = "DIALOGUE";
+    },
+  },
+  // 第四章 第七层 BOSS
+  {
+    name: "第四章 · 第七层",
+    bg: "facility",
+    intro: [
+      ["腕表", "忒修斯主控核心：检测到 TX-Alpha。威胁等级：极高。"],
+      ["李墨", "三千名沉睡的胚胎……还有这只东西。"],
+      ["李墨", "克朗，你的疯狂梦想，到此为止。"],
+    ],
+    setup() {
+      Game.bg = "facility";
+      Game.player.x = 30; Game.player.y = 100;
+      Game.enemies = [ spawnEnemy("boss", 240, 100) ];
+    },
+    onClear() {
+      Game.unlocked.fire = true;
+      Game.dialogue = mkDialogue([
+        ["腕表", "TX-Alpha 已击败。基因结晶体高度稀有。"],
+        ["腕表", "技能激活：基因焰爆（U 键）。"],
+        ["系统", "忒修斯主控核心：试炼通过。"],
+        ["系统", "摇篮激活权限已授予。是否开启三千名志愿者胚胎？"],
+        ["李墨", "（抬手悬于按钮之上）……我不是任何人的继承者。"],
+      ], () => { Game.state = "CHOICE"; });
+    },
+  },
+];
+
+/* -------------------- 对话系统 -------------------- */
+function mkDialogue(lines, after) {
+  return { lines, i: 0, after: after || null, charT: 0 };
+}
+function tickDialogue(dt) {
+  const d = Game.dialogue;
+  d.charT += dt * 60;       // 字符速度
+  if (consume("Space") || consume("Enter")) {
+    const line = d.lines[d.i];
+    const fullLen = line[1].length;
+    if (d.charT < fullLen) {
+      d.charT = fullLen;     // 第一次按：直接显示完
+    } else {
+      d.i++;
+      d.charT = 0;
+      if (d.i >= d.lines.length) {
+        if (d.after) d.after();
+        else Game.state = "PLAY";
+      }
+    }
+  }
+}
+function drawDialogue() {
+  const d = Game.dialogue;
+  const line = d.lines[d.i];
+  if (!line) return;
+  const [who, text] = line;
+  // 半透明黑底
+  rect(0, H - 60, W, 60, "rgba(0,0,0,0.78)");
+  rect(0, H - 60, W, 1, "#cf6a1a");
+  rect(0, H - 1, W, 1, "#cf6a1a");
+  // 名字
+  drawText(who + " ▸", 10, H - 50, "#ffd28a");
+  // 文本（带打字机效果）
+  const visible = Math.min(line[1].length, Math.floor(d.charT));
+  drawText(text.slice(0, visible), 10, H - 36, "#ece4d0", 240);
+  // 提示
+  if (d.charT >= text.length) {
+    if ((Game.time * 2) % 2 < 1)
+      drawText("[空格]", W - 38, H - 12, "#aaa288");
+  }
+}
+
+/* -------------------- 文本绘制（点阵伪字体，仅 ASCII；中文走系统字体） --------*/
+// 因为程序化绘制中文太重，这里直接用 canvas 系统字体；为保持像素风，禁用平滑
+function drawText(str, x, y, color, maxW) {
+  g.font = "10px 'Microsoft YaHei','PingFang SC','Noto Sans CJK SC',sans-serif";
+  g.textBaseline = "top";
+  g.fillStyle = color || "#fff";
+  if (!maxW) { g.fillText(str, x, y); return; }
+  // 简单按字符宽度换行
+  let line = "", yy = y;
+  for (const ch of str) {
+    const test = line + ch;
+    if (g.measureText(test).width > maxW) {
+      g.fillText(line, x, yy);
+      yy += 12; line = ch;
+    } else line = test;
+  }
+  if (line) g.fillText(line, x, yy);
+}
+function drawCenterText(str, y, color, size) {
+  g.font = (size||12) + "px 'Microsoft YaHei','PingFang SC',sans-serif";
+  g.textBaseline = "top";
+  g.fillStyle = color || "#fff";
+  const w = g.measureText(str).width;
+  g.fillText(str, (W - w) / 2, y);
+}
+
+/* -------------------- 背景渲染 -------------------- */
+function drawBackground() {
+  if (Game.bg === "sand") {
+    // 橙红沙漠 + 远处土星 + 半球建筑
+    // 天空（琥珀色）
+    for (let y = 0; y < 80; y++) {
+      const t = y / 80;
+      const r = 200 + t * 30, gn = 130 - t * 30, b = 60 + t * 20;
+      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
+    }
+    // 土星
+    rect(220, 12, 60, 30, "#e6c280");
+    rect(225, 18, 50, 18, "#d8a860");
+    rect(230, 22, 40, 12, "#b88848");
+    // 土星环（细椭圆）
+    g.strokeStyle = "rgba(220,180,120,0.7)";
+    g.lineWidth = 1;
+    g.beginPath(); g.ellipse(250, 30, 38, 6, 0, 0, Math.PI*2); g.stroke();
+    // 远处建筑剪影
+    drawDome(60, 50, 60, 20);
+    // 沙地
+    for (let y = 80; y < H; y++) {
+      const t = (y - 80) / (H - 80);
+      const r = 180 - t * 60, gn = 90 - t * 30, b = 40;
+      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
+    }
+    // 沙丘剪影
+    g.fillStyle = "#7a3a18";
+    g.beginPath();
+    g.moveTo(0, 95);
+    for (let x = 0; x <= W; x += 8) {
+      const yy = 95 + Math.sin(x*0.05) * 4 + Math.sin(x*0.13) * 2;
+      g.lineTo(x, yy);
+    }
+    g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+    // 关卡 1 装饰：逃生舱
+    if (Game.level === 0) drawPod(8, 130);
+    // 沙粒散点
+    for (let i = 0; i < 30; i++) {
+      const sx = (i * 37 + (Game.time * 6 | 0)) % W;
+      const sy = 100 + (i * 13) % (H - 100);
+      px(sx, sy, "#3a1a08");
+    }
+  }
+  else if (Game.bg === "forest") {
+    // 紫色森林
+    for (let y = 0; y < H; y++) {
+      const t = y / H;
+      const r = 30 + t * 20, gn = 10 + t * 15, b = 40 + t * 30;
+      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
+    }
+    // 菌毯
+    rect(0, H - 40, W, 40, "#163a4a");
+    rect(0, H - 40, W, 1, "#2a6a78");
+    // 树
+    const trees = [
+      [20, 40], [60, 30], [110, 50], [160, 30], [200, 60],
+      [40, 130], [90, 140], [150, 145], [220, 150], [280, 140], [300, 50],
+    ];
+    for (const [tx, ty] of trees) drawTree(tx, ty);
+    // 发光孢子
+    for (let i = 0; i < 25; i++) {
+      const sx = (i * 53 + Game.time * 8) % W;
+      const sy = 30 + ((i * 19 + Game.time * 4) % (H - 60));
+      px(sx|0, sy|0, "#aaffcc");
+      px((sx|0)+1, (sy|0), "#88dd99");
+    }
+  }
+  else if (Game.bg === "rocks") {
+    // 岩石山地
+    for (let y = 0; y < H; y++) {
+      const t = y / H;
+      const r = 60 + t * 40, gn = 35 + t * 25, b = 25 + t * 15;
+      rect(0, y, W, 1, `rgb(${r|0},${gn|0},${b|0})`);
+    }
+    // 远山
+    g.fillStyle = "#3a2818";
+    g.beginPath(); g.moveTo(0, 70);
+    for (let x = 0; x <= W; x += 16) g.lineTo(x, 70 - (Math.sin(x*0.04)*8 + ((x*7)%11)));
+    g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+    // 岩石
+    const rocks = [[40,90],[100,150],[160,80],[210,140],[260,100],[290,160],[20,170],[150,170]];
+    for (const [rx, ry] of rocks) drawRock(rx, ry);
+    // 风沙
+    for (let i = 0; i < 40; i++) {
+      const sx = (i * 19 + Game.time * 22) % W;
+      const sy = 30 + (i * 11) % (H - 60);
+      px(sx, sy, "rgba(200,170,120,0.5)");
+    }
+  }
+  else if (Game.bg === "facility") {
+    // 设施内部 —— 金属冷光
+    rect(0, 0, W, H, "#0e0e16");
+    // 地砖
+    for (let y = 100; y < H; y += 16) {
+      for (let x = 0; x < W; x += 16) {
+        rect(x, y, 15, 15, ((x+y)/16)%2 ? "#1a1a26" : "#22222e");
+        rect(x, y, 15, 1, "#2a2a3a");
+      }
+    }
+    // 墙
+    rect(0, 0, W, 100, "#0a0a14");
+    for (let i = 0; i < 8; i++) {
+      const cx = 20 + i * 36;
+      // 容器（圆柱形冷冻舱）
+      rect(cx, 30, 16, 60, "#0e1828");
+      rect(cx+1, 31, 14, 58, "#1a3a5a");
+      rect(cx+3, 33, 10, 54, "rgba(120,200,255,0.35)");
+      rect(cx+5, 40 + (Math.sin(Game.time*2 + i)*4|0), 6, 8, "#ffaa88"); // 胚胎剪影
+      rect(cx, 30, 16, 1, "#3a6aaa");
+      rect(cx, 89, 16, 1, "#3a6aaa");
+    }
+    // 顶部红灯（BOSS 关）
+    if ((Game.time * 2) % 2 < 1) rect(0, 0, W, 4, "#a01818");
+    else rect(0, 0, W, 4, "#400808");
+  }
+}
+
+/* -------------------- 玩家 -------------------- */
+function tickPlayer(dt) {
+  const p = Game.player;
+  if (p.iTime > 0) p.iTime -= dt;
+  for (const k in p.cd) if (p.cd[k] > 0) p.cd[k] -= dt;
+  if (p.attackT > 0) p.attackT -= dt;
+
+  // 移动
+  let dx = 0, dy = 0;
+  if (keys["KeyA"] || keys["ArrowLeft"])  dx -= 1;
+  if (keys["KeyD"] || keys["ArrowRight"]) dx += 1;
+  if (keys["KeyW"] || keys["ArrowUp"])    dy -= 1;
+  if (keys["KeyS"] || keys["ArrowDown"])  dy += 1;
+  if (dx || dy) {
+    const len = Math.hypot(dx, dy);
+    dx /= len; dy /= len;
+    p.x += dx * p.speed * dt;
+    p.y += dy * p.speed * dt;
+    p.facing.x = dx; p.facing.y = dy;
+    if (dx > 0.1) p.dir = 1;
+    else if (dx < -0.1) p.dir = -1;
+  }
+  p.x = Math.max(4, Math.min(W - 4 - p.w, p.x));
+  p.y = Math.max(80, Math.min(H - p.h - 4, p.y));
+
+  // 攻击：长矛挥击
+  if (p.cd.atk <= 0 && (consume("KeyJ") || consume("Space") && Game.state === "PLAY")) {
+    p.cd.atk = 0.35;
+    p.attackT = 0.18;
+    const ax = p.x + p.w/2 + (p.dir > 0 ? 4 : -18);
+    const ay = p.y + 2;
+    pushEffect({ kind: "slash", x: ax, y: ay, w: 14, h: 10, t: 0.18, dir: p.dir });
+    // 命中检测
+    for (const e of Game.enemies) {
+      if (rectsOverlap(ax, ay, 14, 10, e.x, e.y, e.w, e.h)) {
+        damageEnemy(e, 22, p.dir);
+      }
+    }
+  }
+
+  // 神经麻痹脉冲（环形 AoE，瘫痪 3s）
+  if (Game.unlocked.neural && p.cd.neural <= 0 && consume("KeyK")) {
+    p.cd.neural = 8;
+    pushEffect({ kind: "neural", x: p.x + p.w/2, y: p.y + p.h/2, t: 0.6, r: 0, maxR: 36 });
+    for (const e of Game.enemies) {
+      const dx = (e.x + e.w/2) - (p.x + p.w/2);
+      const dy = (e.y + e.h/2) - (p.y + p.h/2);
+      if (dx*dx + dy*dy <= 36*36) {
+        damageEnemy(e, 12, dx > 0 ? 1 : -1);
+        e.frozenT = Math.max(e.frozenT, 3);
+      }
+    }
+  }
+
+  // 声波冷冻锥（前向扇形，减速 + 持续伤害）
+  if (Game.unlocked.frost && p.cd.frost <= 0 && consume("KeyL")) {
+    p.cd.frost = 12;
+    const dir = p.dir;
+    pushEffect({ kind: "frost", x: p.x + p.w/2, y: p.y + p.h/2, t: 0.5, dir });
+    for (const e of Game.enemies) {
+      const dx = (e.x + e.w/2) - (p.x + p.w/2);
+      const dy = (e.y + e.h/2) - (p.y + p.h/2);
+      if (Math.sign(dx) === dir && Math.abs(dx) < 56 && Math.abs(dy) < 28 + Math.abs(dx)*0.5) {
+        damageEnemy(e, 28, dir);
+        e.slowT = Math.max(e.slowT, 5);
+      }
+    }
+  }
+
+  // 基因焰爆（大范围爆炸）
+  if (Game.unlocked.fire && p.cd.fire <= 0 && consume("KeyU")) {
+    p.cd.fire = 20;
+    const cx = p.x + p.w/2 + p.dir * 30;
+    const cy = p.y + p.h/2;
+    pushEffect({ kind: "fire", x: cx, y: cy, t: 0.9, r: 0, maxR: 42 });
+    Game.shake = 0.4;
+    for (const e of Game.enemies) {
+      const dx = (e.x + e.w/2) - cx;
+      const dy = (e.y + e.h/2) - cy;
+      if (dx*dx + dy*dy <= 42*42) damageEnemy(e, 80, dx > 0 ? 1 : -1);
+    }
+  }
+}
+
+function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function damageEnemy(e, dmg, dir) {
+  e.hp -= dmg;
+  e.hitT = 0.15;
+  e.x += dir * 3;
+  if (e.hp <= 0) {
+    pushEffect({ kind: "dieFlash", x: e.x, y: e.y, w: e.w, h: e.h, t: 0.4, color: e.color });
+    pushEffect({ kind: "crystal", x: e.x + e.w/2 - 2, y: e.y + e.h/2 - 2, t: 0.9, color: e.color });
+  }
+}
+
+function damagePlayer(dmg) {
+  const p = Game.player;
+  if (p.iTime > 0) return;
+  p.hp -= dmg;
+  p.iTime = 0.6;
+  Game.flash = 0.25;
+  Game.shake = 0.18;
+  if (p.hp <= 0) {
+    p.hp = 0;
+    Game.state = "GAMEOVER";
+  }
+}
+
+/* -------------------- 敌人 AI -------------------- */
+function tickEnemies(dt) {
+  const p = Game.player;
+  for (const e of Game.enemies) {
+    if (e.hitT > 0) e.hitT -= dt;
+    if (e.frozenT > 0) { e.frozenT -= dt; continue; }
+    if (e.atkT > 0) e.atkT -= dt;
+
+    const dx = (p.x + p.w/2) - (e.x + e.w/2);
+    const dy = (p.y + p.h/2) - (e.y + e.h/2);
+    const d = Math.hypot(dx, dy) || 1;
+    let speed = e.speed * (e.slowT > 0 ? 0.3 : 1);
+    if (e.slowT > 0) e.slowT -= dt;
+    e.facing = dx > 0 ? 1 : -1;
+    // BOSS 攻击：远程冲撞
+    if (d > 14) {
+      e.x += (dx/d) * speed * dt;
+      e.y += (dy/d) * speed * dt;
+    } else if (e.atkT <= 0) {
+      e.atkT = 1.2;
+      damagePlayer(e.dmg);
+    }
+  }
+  // 移除尸体
+  Game.enemies = Game.enemies.filter(e => e.hp > 0);
+
+  // 关卡完成
+  if (Game.state === "PLAY" && Game.enemies.length === 0 && !Game.exit) {
+    Game.exit = { x: W - 30, y: 96, w: 14, h: 14, t: 0 };
+  }
+
+  // 进入出口
+  if (Game.exit) {
+    Game.exit.t += dt;
+    if (rectsOverlap(p.x, p.y, p.w, p.h, Game.exit.x, Game.exit.y, Game.exit.w, Game.exit.h)) {
+      Game.exit = null;
+      LEVELS[Game.level].onClear();
+    }
+  }
+}
+
+/* -------------------- 特效 -------------------- */
+function tickEffects(dt) {
+  for (const f of Game.effects) {
+    f.t -= dt;
+    if (f.kind === "neural") f.r = f.maxR * (1 - f.t / 0.6);
+    if (f.kind === "fire")   f.r = f.maxR * (1 - f.t / 0.9);
+  }
+  Game.effects = Game.effects.filter(f => f.t > 0);
+}
+
+function drawEffects() {
+  for (const f of Game.effects) {
+    if (f.kind === "slash") {
+      const ox = f.dir > 0 ? f.x : f.x;
+      g.fillStyle = "rgba(255,240,180,0.85)";
+      for (let i = 0; i < 4; i++) {
+        rect(ox + i*2, f.y - 2 + i, f.w - i*4, 1, "rgba(255,240,180,0.85)");
+      }
+      // 矛尖
+      rect(f.x + (f.dir>0?f.w-2:0), f.y + 4, 2, 2, "#fff");
+    }
+    else if (f.kind === "neural") {
+      g.strokeStyle = "rgba(192,96,255,0.8)";
+      g.lineWidth = 1;
+      g.beginPath(); g.arc(f.x, f.y, f.r, 0, Math.PI*2); g.stroke();
+      g.strokeStyle = "rgba(192,96,255,0.4)";
+      g.beginPath(); g.arc(f.x, f.y, f.r * 0.7, 0, Math.PI*2); g.stroke();
+    }
+    else if (f.kind === "frost") {
+      const dir = f.dir;
+      g.fillStyle = "rgba(140,220,255,0.5)";
+      // 扇形锥
+      g.beginPath();
+      g.moveTo(f.x, f.y);
+      g.lineTo(f.x + dir*56, f.y - 28);
+      g.lineTo(f.x + dir*56, f.y + 28);
+      g.closePath(); g.fill();
+      // 冰晶散点
+      for (let i = 0; i < 12; i++) {
+        const px2 = f.x + dir * (10 + i * 4);
+        const py2 = f.y + Math.sin(i + Game.time*8) * (i*2);
+        px(px2, py2, "#e0f4ff");
+      }
+    }
+    else if (f.kind === "fire") {
+      const a = 1 - (1 - f.t / 0.9);
+      g.fillStyle = `rgba(255,90,30,${0.7*a})`;
+      g.beginPath(); g.arc(f.x, f.y, f.r, 0, Math.PI*2); g.fill();
+      g.fillStyle = `rgba(255,200,100,${0.6*a})`;
+      g.beginPath(); g.arc(f.x, f.y, f.r * 0.6, 0, Math.PI*2); g.fill();
+      g.fillStyle = `rgba(255,255,220,${0.7*a})`;
+      g.beginPath(); g.arc(f.x, f.y, f.r * 0.25, 0, Math.PI*2); g.fill();
+    }
+    else if (f.kind === "dieFlash") {
+      const a = f.t / 0.4;
+      g.fillStyle = `rgba(255,255,255,${a*0.7})`;
+      g.fillRect(f.x, f.y, f.w, f.h);
+    }
+    else if (f.kind === "crystal") {
+      const yo = Math.sin(Game.time*8) * 1;
+      g.fillStyle = f.color;
+      g.fillRect(f.x, f.y + yo, 4, 4);
+      g.fillStyle = "#fff";
+      px(f.x+1, f.y + yo, "#fff");
+    }
+  }
+}
+
+/* -------------------- 实体绘制 -------------------- */
+function drawPlayer() {
+  const p = Game.player;
+  const blink = (p.iTime > 0 && Math.floor(p.iTime * 20) % 2 === 0);
+  if (blink) return;
+  drawSprite(SPR_PLAYER, PAL_PLAYER, p.x|0, p.y|0, p.dir < 0);
+  // 长矛
+  const sx = p.x + (p.dir > 0 ? p.w : -8);
+  const sy = p.y + 5;
+  if (p.attackT > 0) {
+    // 挥击：矛伸出
+    rect(sx + (p.dir>0?2:0), sy, 12, 1, "#a06a3a");
+    rect(sx + (p.dir>0?13:0), sy, 1, 2, "#dcdcdc");
+  } else {
+    rect(sx + (p.dir>0?2:5), sy + 1, 6, 1, "#a06a3a");
+    rect(sx + (p.dir>0?7:4), sy, 1, 2, "#dcdcdc");
+  }
+}
+
+function drawEnemy(e) {
+  const flicker = e.hitT > 0 && Math.floor(e.hitT * 30) % 2 === 0;
+  const flip = e.facing < 0;
+  if (e.type === "tx03") drawSprite(SPR_TX03, PAL_TX03, e.x|0, e.y|0, flip);
+  else if (e.type === "tx07") drawSprite(SPR_TX07, PAL_TX07, e.x|0, e.y|0, flip);
+  else if (e.type === "boss") drawSprite(SPR_BOSS, PAL_BOSS, e.x|0, e.y|0, flip);
+  if (flicker) {
+    g.globalCompositeOperation = "lighter";
+    g.fillStyle = "rgba(255,255,255,0.6)";
+    g.fillRect(e.x, e.y, e.w, e.h);
+    g.globalCompositeOperation = "source-over";
+  }
+  if (e.frozenT > 0) {
+    g.fillStyle = "rgba(160,220,255,0.45)";
+    g.fillRect(e.x - 1, e.y - 1, e.w + 2, e.h + 2);
+  }
+  // 血条
+  const hpW = e.w;
+  rect(e.x, e.y - 4, hpW, 1, "#3a0a0a");
+  rect(e.x, e.y - 4, (hpW * e.hp / e.maxHp)|0, 1, "#ff5050");
+  // BOSS 名字
+  if (e.isBoss) {
+    drawText("TX-Alpha", e.x - 4, e.y - 14, "#ff8080");
+  }
+}
+
+function drawExit() {
+  if (!Game.exit) return;
+  const t = Game.exit.t;
+  const pulse = 0.6 + 0.4 * Math.sin(t * 6);
+  rect(Game.exit.x, Game.exit.y, Game.exit.w, Game.exit.h, `rgba(255,200,80,${pulse*0.5})`);
+  rect(Game.exit.x + 2, Game.exit.y + 2, Game.exit.w - 4, Game.exit.h - 4, "#ffd078");
+  rect(Game.exit.x + 4, Game.exit.y + 4, Game.exit.w - 8, Game.exit.h - 8, "#ffffaa");
+  drawText("→", Game.exit.x + 4, Game.exit.y + 2, "#5a3010");
+  drawText("前进", Game.exit.x - 4, Game.exit.y - 12, "#ffd078");
+}
+
+/* -------------------- HUD -------------------- */
+function drawHUD() {
+  // 章节名
+  drawText(LEVELS[Game.level].name, 6, 4, "#ece4d0");
+  // HP
+  const p = Game.player;
+  rect(6, H - 14, 80, 6, "#1a0606");
+  rect(6, H - 14, (80 * p.hp / p.maxHp)|0, 6, "#e04040");
+  drawText("HP", 6, H - 24, "#ece4d0");
+  // 技能图标
+  const skills = [
+    { key: "K", name: "脉冲", cd: p.cd.neural, max: 8,  ok: Game.unlocked.neural, color: "#c060ff" },
+    { key: "L", name: "冷锥", cd: p.cd.frost,  max: 12, ok: Game.unlocked.frost,  color: "#5fc0ff" },
+    { key: "U", name: "焰爆", cd: p.cd.fire,   max: 20, ok: Game.unlocked.fire,   color: "#ff5a30" },
+    { key: "J", name: "长矛", cd: p.cd.atk,    max: 0.35, ok: true,               color: "#dcdcdc" },
+  ];
+  for (let i = 0; i < skills.length; i++) {
+    const s = skills[i];
+    const x = W - 8 - (skills.length - i) * 26;
+    const y = H - 22;
+    rect(x, y, 22, 18, s.ok ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.85)");
+    rect(x, y, 22, 1, s.ok ? s.color : "#444");
+    if (!s.ok) {
+      drawText("?", x + 8, y + 4, "#666");
+      drawText("--", x + 4, y + 12, "#666");
+    } else {
+      drawText(s.key, x + 7, y + 2, s.color);
+      drawText(s.name, x + 2, y + 12, "#ece4d0");
+      if (s.cd > 0) {
+        const ratio = s.cd / s.max;
+        rect(x, y + 18 - ratio*18, 22, ratio*18, "rgba(0,0,0,0.55)");
+      }
+    }
+  }
+}
+
+/* -------------------- 标题 / 结局 -------------------- */
+function drawTitle() {
+  // 渐变 + 星星
+  rect(0, 0, W, H, "#070612");
+  for (let i = 0; i < 60; i++) {
+    const sx = (i * 71) % W, sy = (i * 53) % H;
+    px(sx, sy, i % 7 === 0 ? "#ffd28a" : "#aaa");
+  }
+  // 大土星
+  rect(W - 100, 30, 70, 35, "#cba070");
+  rect(W - 95, 38, 60, 22, "#b08060");
+  g.strokeStyle = "rgba(220,180,120,0.8)";
+  g.lineWidth = 1;
+  g.beginPath(); g.ellipse(W - 65, 50, 50, 7, -0.15, 0, Math.PI*2); g.stroke();
+
+  // 标题
+  drawCenterText("泰  坦  遗  种", 60, "#f0d090", 24);
+  drawCenterText("TITAN HEIR", 90, "#a08060", 10);
+  drawCenterText("一  个  像  素  风  求  生  剧", 110, "#7a705c", 11);
+
+  // 提示
+  if ((Game.time * 1.5) % 2 < 1)
+    drawCenterText("[ 按 空格 / 回车 开始 ]", 150, "#ffd28a", 11);
+  drawCenterText("改编自《泰坦遗种·短篇》", 175, "#5a5040", 9);
+
+  if (consume("Space") || consume("Enter")) {
+    Game.level = 0;
+    Game.player = makePlayer();
+    Game.unlocked = { neural: false, frost: false, fire: false };
+    LEVELS[0].setup();
+    Game.dialogue = mkDialogue(LEVELS[0].intro, () => { Game.state = "PLAY"; });
+    Game.state = "DIALOGUE";
+  }
+}
+
+function nextLevel() {
+  Game.level++;
+  if (Game.level >= LEVELS.length) {
+    // 已在最终关 onClear 中处理 CHOICE
+    return;
+  }
+  // 满血进入下一关
+  Game.player.hp = Math.min(Game.player.maxHp, Game.player.hp + 50);
+  LEVELS[Game.level].setup();
+  Game.dialogue = mkDialogue(LEVELS[Game.level].intro, () => { Game.state = "PLAY"; });
+  Game.state = "DIALOGUE";
+}
+
+/* -------------------- 选择 / 结局 -------------------- */
+let choiceIdx = 0;
+function tickChoice() {
+  if (consume("ArrowUp") || consume("KeyW") || consume("ArrowLeft") || consume("KeyA")) choiceIdx = (choiceIdx + 1) % 2;
+  if (consume("ArrowDown") || consume("KeyS") || consume("ArrowRight") || consume("KeyD")) choiceIdx = (choiceIdx + 1) % 2;
+  if (consume("Space") || consume("Enter")) {
+    if (choiceIdx === 0) {
+      Game.ending = "DISTRESS";
+      Game.dialogue = mkDialogue([
+        ["李墨", "（按下'紧急通讯'，而不是'摇篮激活'）"],
+        ["系统", "紧急求救信号已发出。坐标：泰坦，赫尔墨斯盆地东部。"],
+        ["李墨", "对不起。你们值得一个比克朗更好的开始。"],
+        ["李墨", "我没有资格替三千个生命做这个选择。"],
+        ["——", "五天后，联合行星法庭的救援飞船降落在半球建筑之外。"],
+        ["救援队长", "李墨先生，您已经是英雄了。"],
+        ["李墨", "我不是英雄。我只是想回家。"],
+      ], () => { Game.state = "ENDING"; });
+    } else {
+      Game.ending = "RELEASE";
+      Game.dialogue = mkDialogue([
+        ["李墨", "（按下'摇篮激活'）……潘多拉的盒子，由我亲手打开。"],
+        ["系统", "三千名志愿者胚胎已唤醒。"],
+        ["??", "新人类将不再被地球禁锢。我们将——"],
+        ["李墨", "住口！"],
+        ["——", "TX 系列基因结晶在他血脉中翻涌。新世界的种子，自此生根。"],
+        ["——", "这是另一个故事的开端，但不再属于一个'想要回家的工程师'。"],
+      ], () => { Game.state = "ENDING"; });
+    }
+    Game.state = "DIALOGUE";
+  }
+}
+function drawChoice() {
+  rect(0, 0, W, H, "#0a0a14");
+  // 控制台
+  rect(80, 50, 160, 100, "#1a1a26");
+  rect(80, 50, 160, 1, "#cf6a1a");
+  rect(80, 149, 160, 1, "#cf6a1a");
+  drawCenterText("忒修斯主控核心", 60, "#ffd28a", 14);
+  drawCenterText("是否唤醒三千名沉睡的胚胎？", 80, "#ece4d0", 11);
+
+  const opts = ["▸ 不释放，发出紧急求救（守住底线）",
+                "▸ 释放胚胎，开启新人类纪元（潘多拉）"];
+  for (let i = 0; i < 2; i++) {
+    const y = 105 + i * 18;
+    if (i === choiceIdx) {
+      rect(85, y - 2, 150, 14, "rgba(207,106,26,0.25)");
+      drawText(opts[i], 92, y, "#ffd28a");
+    } else {
+      drawText(opts[i], 92, y, "#888272");
+    }
+  }
+  drawCenterText("[ ↑↓ 选择 · 空格 确认 ]", 165, "#aaa288", 9);
+}
+function drawEnding() {
+  rect(0, 0, W, H, "#06060c");
+  for (let i = 0; i < 80; i++) {
+    const sx = (i * 71 + Game.time * 3) % W;
+    const sy = (i * 53) % H;
+    px(sx|0, sy, i % 5 === 0 ? "#ffd28a" : "#7a7a90");
+  }
+  if (Game.ending === "DISTRESS") {
+    drawCenterText("结  局  ·  守  望", 30, "#f0d090", 16);
+    drawCenterText("第三件事，他还没想好。", 70, "#ece4d0", 11);
+    drawCenterText("但他知道，无论是什么，他都不再害怕了。", 90, "#ece4d0", 11);
+    drawCenterText("因为他已经在泰坦的荒野上，", 115, "#aaa288", 10);
+    drawCenterText("从一个普通的工程师，", 130, "#aaa288", 10);
+    drawCenterText("走成了一个见过深渊、却没有被深渊吞噬的人。", 145, "#aaa288", 10);
+  } else {
+    drawCenterText("结  局  ·  种  火", 30, "#ffaa70", 16);
+    drawCenterText("克朗的疯狂梦想成为现实。", 70, "#ece4d0", 11);
+    drawCenterText("三千名新人类睁开了眼睛，", 90, "#ece4d0", 11);
+    drawCenterText("而李墨，成了他们的'继承者'。", 110, "#ece4d0", 11);
+    drawCenterText("这是另一个故事的开端。", 140, "#aaa288", 10);
+  }
+  drawCenterText("—— 全 文 完 ——", 175, "#cf6a1a", 11);
+  if ((Game.time * 1.5) % 2 < 1)
+    drawCenterText("[ 空格 返回标题 ]", 190, "#888272", 9);
+  if (consume("Space") || consume("Enter")) {
+    Game.state = "TITLE";
+  }
+}
+function drawGameOver() {
+  rect(0, 0, W, H, "rgba(0,0,0,0.85)");
+  drawCenterText("你 倒 在 了 泰 坦 的 荒 野", 70, "#e04040", 16);
+  drawCenterText("呼吸器电量耗尽……", 100, "#aaa288", 11);
+  drawCenterText("[ 空格 重新挑战本章 ]", 140, "#ffd28a", 11);
+  if (consume("Space") || consume("Enter")) {
+    Game.player.hp = Game.player.maxHp;
+    LEVELS[Game.level].setup();
+    Game.state = "PLAY";
+  }
+}
+
+/* -------------------- 主循环 -------------------- */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  Game.time += dt;
+  if (Game.flash > 0) Game.flash -= dt;
+  if (Game.shake > 0) Game.shake -= dt;
+
+  // ---- 更新 ----
+  if (Game.state === "TITLE") { /* 在 drawTitle 中处理输入 */ }
+  else if (Game.state === "DIALOGUE") tickDialogue(dt);
+  else if (Game.state === "PLAY") {
+    tickPlayer(dt);
+    tickEnemies(dt);
+    tickEffects(dt);
+  }
+  else if (Game.state === "CHOICE") tickChoice();
+  else if (Game.state === "ENDING") { /* drawEnding 中处理 */ }
+  else if (Game.state === "GAMEOVER") { /* drawGameOver 中处理 */ }
+
+  // ---- 渲染 ----
+  // 屏幕震动偏移
+  let shx = 0, shy = 0;
+  if (Game.shake > 0) {
+    shx = (Math.random() - 0.5) * Game.shake * 8;
+    shy = (Math.random() - 0.5) * Game.shake * 8;
+  }
+  g.save();
+  g.translate(shx, shy);
+
+  if (Game.state === "TITLE") {
+    drawTitle();
+  } else if (Game.state === "CHOICE") {
+    drawChoice();
+  } else if (Game.state === "ENDING") {
+    drawEnding();
+  } else {
+    drawBackground();
+    // 排序：按 y 排序保证遮挡正确
+    const drawables = [];
+    drawables.push({ y: Game.player.y + Game.player.h, draw: drawPlayer });
+    for (const e of Game.enemies) drawables.push({ y: e.y + e.h, draw: () => drawEnemy(e) });
+    if (Game.exit) drawables.push({ y: Game.exit.y + Game.exit.h, draw: drawExit });
+    drawables.sort((a, b) => a.y - b.y);
+    for (const d of drawables) d.draw();
+    drawEffects();
+    drawHUD();
+    if (Game.state === "DIALOGUE") drawDialogue();
+    if (Game.state === "GAMEOVER") drawGameOver();
+  }
+
+  // 全屏红闪
+  if (Game.flash > 0) {
+    g.fillStyle = `rgba(255,40,40,${Game.flash})`;
+    g.fillRect(0, 0, W, H);
+  }
+  g.restore();
+
+  // 放大到主画布
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, VW, VH);
+  ctx.drawImage(off, 0, 0, W, H, 0, 0, VW, VH);
+
+  // 扫描线（轻微 CRT）
+  ctx.fillStyle = "rgba(0,0,0,0.07)";
+  for (let y = 0; y < VH; y += 3) ctx.fillRect(0, y, VW, 1);
+
+  // 一帧结束时清掉 pressed（pressed 为单帧事件，但 consume 已处理）
+  // —— 这里仅清理本帧未消耗的：保留以便其他状态使用。我们在状态切换帧也清空，避免误读。
+  for (const k in pressed) pressed[k] = false;
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
