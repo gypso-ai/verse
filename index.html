@@ -428,6 +428,25 @@
   }
   .tts-bar .tts-btn svg { width: 16px; height: 16px; }
   .tts-bar .tts-btn.primary svg { width: 18px; height: 18px; }
+  .tts-bar .tts-bar-voice {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg-soft);
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    font-size: 11px;
+    max-width: 88px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 0 0 auto;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .tts-bar .tts-bar-voice:hover { border-color: var(--accent); color: var(--fg); }
   .tts-bar .tts-status {
     padding: 0 8px;
     white-space: nowrap;
@@ -558,6 +577,9 @@
   <button class="tts-btn" id="ttsNext" aria-label="下一段" title="下一段">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
   </button>
+  <select class="tts-bar-voice" id="ttsBarVoice" aria-label="选择音色" title="选择音色">
+    <option value="">自动</option>
+  </select>
   <span class="tts-status" id="ttsStatus">就绪</span>
   <button class="tts-btn" id="ttsClose" aria-label="关闭朗读" title="关闭朗读">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -958,6 +980,7 @@
     const iconPause = document.getElementById('ttsIconPause');
     const statusEl = document.getElementById('ttsStatus');
     const voiceSel = document.getElementById('ttsVoice');
+    const barVoiceSel = document.getElementById('ttsBarVoice');
     const rateInput = document.getElementById('ttsRate');
     const pitchInput = document.getElementById('ttsPitch');
 
@@ -1001,23 +1024,31 @@
 
     function loadVoices() {
       voices = (synth.getVoices() || []).slice().sort((a, b) => scoreVoice(b) - scoreVoice(a));
-      if (!voiceSel) return;
       const cur = state.tts.voiceURI;
-      voiceSel.innerHTML = '';
-      // Default option = best-scoring voice automatically
-      const optAuto = document.createElement('option');
-      optAuto.value = '';
-      optAuto.textContent = '自动（最佳中文）';
-      voiceSel.appendChild(optAuto);
-      for (const v of voices) {
-        const opt = document.createElement('option');
-        opt.value = v.voiceURI;
-        opt.textContent = `${v.name} · ${v.lang}`;
-        voiceSel.appendChild(opt);
+
+      // Helper to build options into a given <select>
+      function populateSel(sel, shortLabel) {
+        if (!sel) return;
+        sel.innerHTML = '';
+        const optAuto = document.createElement('option');
+        optAuto.value = '';
+        optAuto.textContent = shortLabel ? '自动' : '自动（最佳中文）';
+        sel.appendChild(optAuto);
+        for (const v of voices) {
+          const opt = document.createElement('option');
+          opt.value = v.voiceURI;
+          // Compact label for the bar: strip common suffixes to save space
+          opt.textContent = shortLabel
+            ? v.name.replace(/\s*(Online\s*Natural|Natural|Online|Neural|Premium|Enhanced)\s*/gi, '').trim() || v.name
+            : `${v.name} · ${v.lang}`;
+          sel.appendChild(opt);
+        }
+        if (cur && voices.some(v => v.voiceURI === cur)) sel.value = cur;
+        else sel.value = '';
       }
-      // Restore selection if still available
-      if (cur && voices.some(v => v.voiceURI === cur)) voiceSel.value = cur;
-      else voiceSel.value = '';
+
+      populateSel(voiceSel, false);
+      populateSel(barVoiceSel, true);
     }
 
     function pickVoice() {
@@ -1081,7 +1112,7 @@
     }
 
     function updateUi() {
-      const playing = active && !synth.paused;
+      const playing = active && !userPaused;
       btnTts.classList.toggle('playing', active);
       iconPlay.style.display = playing ? 'none' : '';
       iconPause.style.display = playing ? '' : 'none';
@@ -1090,7 +1121,7 @@
       if (!active) {
         statusEl.textContent = '就绪';
       } else {
-        statusEl.textContent = synth.paused
+        statusEl.textContent = userPaused
           ? '已暂停'
           : `朗读中 ${blockIdx + 1}/${blocks.length}`;
       }
@@ -1292,16 +1323,21 @@
     });
 
     // Voice / rate / pitch settings persistence.
-    voiceSel.addEventListener('change', () => {
-      state.tts.voiceURI = voiceSel.value || '';
+    function applyVoiceChange(newURI) {
+      state.tts.voiceURI = newURI || '';
       LS.set('reader.tts.voice', state.tts.voiceURI);
+      // Keep both selectors in sync
+      if (voiceSel && voiceSel.value !== state.tts.voiceURI) voiceSel.value = state.tts.voiceURI;
+      if (barVoiceSel && barVoiceSel.value !== state.tts.voiceURI) barVoiceSel.value = state.tts.voiceURI;
       // If currently speaking, restart current chunk with the new voice.
       if (active) {
         try { synth.cancel(); } catch {}
         manualNav = true;
         setTimeout(() => { manualNav = false; speakCurrentChunk(); }, 60);
       }
-    });
+    }
+    voiceSel.addEventListener('change', () => applyVoiceChange(voiceSel.value));
+    if (barVoiceSel) barVoiceSel.addEventListener('change', () => applyVoiceChange(barVoiceSel.value));
     rateInput.value = String(state.tts.rate);
     pitchInput.value = String(state.tts.pitch);
     rateInput.addEventListener('input', () => {
