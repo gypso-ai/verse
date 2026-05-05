@@ -1125,8 +1125,12 @@
         chunkIdx = 0;
         highlight(blocks[blockIdx].el);
       }
-      // Cancel any pending utterance to keep the queue clean.
-      try { synth.cancel(); } catch {}
+      // NOTE: Do NOT call synth.cancel() here. Callers that need to interrupt
+      // an existing utterance (start/jump/voice change/click-to-jump) already
+      // cancel and then defer this call via setTimeout so the queue is clear.
+      // Calling cancel() synchronously immediately before speak() is racy on
+      // iOS Safari (cancel is async) and causes the new utterance to be
+      // silently dropped — the UI shows "朗读中" but no audio plays.
       const u = new SpeechSynthesisUtterance(chunks[chunkIdx]);
       const v = pickVoice();
       if (v) {
@@ -1159,6 +1163,10 @@
       };
       highlight(blocks[blockIdx].el);
       synth.speak(u);
+      // Some browsers (notably iOS Safari, and occasionally Chrome) start the
+      // synthesizer in a paused state after speak(); an explicit resume() is a
+      // no-op if it's already playing and reliably kicks off audio when not.
+      try { synth.resume(); } catch {}
       // Chrome workaround: pages left open for long can cause speech to halt.
       // Tickle the engine periodically while playing.
       if (watchdogTimer) clearInterval(watchdogTimer);
